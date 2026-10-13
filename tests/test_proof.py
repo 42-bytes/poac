@@ -109,6 +109,19 @@ def test_kernel_timeout_enforced():
 
 
 @needs_lean
+def test_kernel_memory_cap_is_applied():
+    """Lean's --memory cap: default is generous enough for reference proofs,
+    an absurdly small cap must fail closed (never crash the verifier)."""
+    gc = make_challenge("proof", SEED, 2)
+    ok = check_proof(LEAN, gc.payload.preamble, gc.payload.proposition, gc.answer)
+    assert ok.ok, ok.reason
+    starved = check_proof(
+        LEAN, gc.payload.preamble, gc.payload.proposition, gc.answer, max_memory_mb=1
+    )
+    assert not starved.ok
+
+
+@needs_lean
 def test_reference_solver_proofs_are_kernel_valid():
     for difficulty in (0, 1, 2, 3):
         gc = make_challenge("proof", SEED, difficulty)

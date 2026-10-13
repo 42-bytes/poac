@@ -29,6 +29,13 @@ from poac.protocol.models import MAX_PROOF_ANSWER_CHARS
 
 LEAN_VERSION = "4.33.1"
 CHECK_TIMEOUT_S = 20
+# Heap cap for each kernel subprocess, passed as Lean's own `--memory=<MB>`.
+# (POSIX rlimits are unusable here: Lean reserves very large thread stacks
+# and address ranges, so RLIMIT_AS/RLIMIT_DATA abort it at startup even at
+# multi-GB values.) Core Lean elaborates our propositions in well under
+# 512 MB; the cap turns a memory bomb into a failed round instead of a host
+# OOM. The container `mem_limit` is the backstop.
+CHECK_MAX_MEMORY_MB = int(os.environ.get("POAC_LEAN_MAX_MEMORY_MB", "1024"))
 
 ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 
@@ -124,6 +131,7 @@ def check_proof(
     proposition: str,
     submission: str,
     timeout_s: float = CHECK_TIMEOUT_S,
+    max_memory_mb: int | None = CHECK_MAX_MEMORY_MB,
 ) -> ProofCheckResult:
     reason = screen_submission(submission)
     if reason is not None:
@@ -133,9 +141,13 @@ def check_proof(
     with tempfile.TemporaryDirectory(prefix="poac-lean-") as tmp:
         path = Path(tmp) / "Submission.lean"
         path.write_text(source, encoding="utf-8")
+        cmd = [lean_bin]
+        if max_memory_mb:
+            cmd.append(f"--memory={int(max_memory_mb)}")
+        cmd.append(str(path))
         try:
             proc = subprocess.run(
-                [lean_bin, str(path)],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,

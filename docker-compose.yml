@@ -1,0 +1,45 @@
+# Hardened single-node deployment of the PoAC verifier.
+#
+#   docker compose up --build
+#
+# Lean kernel checks run as subprocesses inside this container; the flags
+# below bound what an elaboration-time escape could reach: no capabilities,
+# no privilege escalation, read-only root, a small tmpfs for the per-check
+# scratch directory, and hard memory / pid ceilings (the verifier also caps
+# each Lean process individually via RLIMIT_AS; see POAC_LEAN_MAX_MEMORY_MB).
+#
+# Egress: the verifier needs no outbound network. Put it on an internal
+# network and expose it only through a reverse proxy that terminates TLS —
+# the `proxy` service below is a minimal example.
+
+services:
+  verifier:
+    build: .
+    image: poac-verifier
+    environment:
+      POAC_BASE_URL: ${POAC_BASE_URL:-http://localhost:8000}
+      POAC_LEAN_MAX_MEMORY_MB: ${POAC_LEAN_MAX_MEMORY_MB:-1024}
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: "2.0"
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2-alpine
+    command: caddy reverse-proxy --from ${POAC_PUBLIC_HOST:-:8000} --to verifier:8000
+    ports:
+      - "8000:8000"
+    networks: [internal, default]
+    depends_on: [verifier]
+    restart: unless-stopped
+
+networks:
+  internal:
+    internal: true
