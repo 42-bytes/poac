@@ -180,10 +180,16 @@ like "is_ai".
 
 ### 6.2 Presentation (holder → relying platform)
 
-The relying platform sends a fresh `nonce` and its `audience` string. The
-holder returns the receipt plus a Key-Binding JWT (`typ: "poac-kb+jwt"`)
-signed with the holder key over `{aud, nonce, iat, receipt_hash}` where
-`receipt_hash = b64url(sha256(receipt JWS))`.
+The verifier issues the `nonce`: the holder (or the relying platform on its
+behalf) calls `GET /v1/verify/nonce` and receives a one-shot nonce with a
+short TTL (120 s, matching the KB-JWT `iat` window). The holder returns the
+receipt plus a Key-Binding JWT (`typ: "poac-kb+jwt"`) signed with the holder
+key over `{aud, nonce, iat, receipt_hash}` where
+`receipt_hash = b64url(sha256(receipt JWS))`. `POST /v1/verify` consumes the
+nonce on first use whether or not the presentation verifies; a nonce it did
+not issue, or one already consumed, is rejected with a distinct reason.
+Relying platforms verifying offline against the JWKS supply their own nonce
+and are responsible for its freshness.
 
 Verification (`credentials/presentation.py`) requires, in order: issuer
 signature and `exp`; `cnf.jkt` equals the thumbprint of the KB-JWT signing

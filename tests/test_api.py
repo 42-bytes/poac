@@ -81,14 +81,15 @@ def test_full_flow_with_holder_key_and_portable_verify(client):
     assert outcome["identity_tier"] == "I1"
 
     receipt = outcome["receipt"]
-    kb = create_kb_jwt(holder_key, receipt, audience="https://rp.example", nonce="verify-1")
+    nonce = client.get("/v1/verify/nonce").json()["nonce"]
+    kb = create_kb_jwt(holder_key, receipt, audience="https://rp.example", nonce=nonce)
     resp = client.post(
         "/v1/verify",
         json={
             "receipt": receipt,
             "kb_jwt": kb,
             "audience": "https://rp.example",
-            "nonce": "verify-1",
+            "nonce": nonce,
         },
     )
     assert resp.status_code == 200
@@ -103,7 +104,7 @@ def test_full_flow_with_holder_key_and_portable_verify(client):
             "receipt": receipt,
             "kb_jwt": kb,
             "audience": "https://rp.example",
-            "nonce": "verify-1",
+            "nonce": nonce,
         },
     )
     assert resp2.json()["valid"] is False
@@ -188,6 +189,7 @@ def test_openapi_documents_endpoints(client):
     assert "/v1/sessions" in spec["paths"]
     assert "/v1/sessions/{session_id}/rounds/{round_index}" in spec["paths"]
     assert "/v1/verify" in spec["paths"]
+    assert "/v1/verify/nonce" in spec["paths"]
     schemas = spec["components"]["schemas"]
     for name in ("NluChallenge", "CodeChallenge", "LogicChallenge", "DataChallenge", "DiagramChallenge"):
         assert name in schemas

@@ -75,9 +75,11 @@ Important: {HONEST_CLAIMS}
    before the budget elapses (server-measured). Rounds are sequential and
    unpredictable; answers are short strings, compared case-insensitively.
 4. On the final round you receive a receipt (JWS). To present it to a
-   relying platform, sign a key-binding JWT (typ "poac-kb+jwt", alg EdDSA,
-   public JWK in the header) over {{aud, nonce, iat, receipt_hash}} where
-   receipt_hash = b64url(sha256(receipt)).
+   relying platform, first GET /v1/verify/nonce (one-shot, expires in ~120 s),
+   then sign a key-binding JWT (typ "poac-kb+jwt", alg Ed25519, public JWK in
+   the header) over {{aud, nonce, iat, receipt_hash}} where
+   receipt_hash = b64url(sha256(receipt)), and POST /v1/verify
+   {{receipt, kb_jwt, audience, nonce}}. Presenter-chosen nonces are rejected.
 5. Tier C4 (when listed in the manifest) is the formal tier: each round is
    a fresh core Lean 4 proposition; submit the proof text that goes after
    ':=' (usually a 'by ...' tactic block, no imports, no '#' commands,

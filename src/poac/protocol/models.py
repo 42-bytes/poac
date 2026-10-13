@@ -188,6 +188,13 @@ RoundOutcome = Annotated[
 # --- portable presentation verification ------------------------------------
 
 
+class VerifyNonceResponse(StrictModel):
+    """One-shot nonce issued by the verifier for a forthcoming presentation."""
+
+    nonce: str
+    expires_in: int = Field(gt=0, description="seconds until the nonce expires")
+
+
 class PresentationRequest(StrictModel):
     receipt: str = Field(max_length=8_192)
     kb_jwt: str = Field(max_length=4_096)

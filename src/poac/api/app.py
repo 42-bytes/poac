@@ -8,6 +8,7 @@ import time
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
+from poac.api.nonces import InMemoryNonceStore, NonceState, NonceStore
 from poac.challenges.proof_check import find_lean
 from poac.credentials.issuer import ReceiptIssuer
 from poac.credentials.presentation import verify_presentation
@@ -26,24 +27,37 @@ from poac.protocol.models import (
     RoundSubmitRequest,
     SessionCreatedResponse,
     SessionCreateRequest,
+    VerifyNonceResponse,
 )
-from poac.sessions.orchestrator import Orchestrator, SessionError
+from poac.sessions.orchestrator import Orchestrator, SessionError, VerifierError
 
 MAX_BODY_BYTES = 64 * 1024
 SESSION_RATE_PER_MINUTE = 30
 
 
 class _RateLimiter:
-    """Minimal fixed-window per-client limiter (prototype scope: L3)."""
+    """Minimal fixed-window per-client limiter (prototype scope: L3).
 
-    def __init__(self, limit_per_minute: int):
+    Memory is bounded: whenever the wall-clock minute rolls over, every
+    entry from a previous minute is dropped, so the table never holds more
+    than one minute's worth of distinct clients.
+    """
+
+    def __init__(self, limit_per_minute: int, clock=time.time):
         self._limit = limit_per_minute
+        self._clock = clock
         self._window: dict[str, tuple[int, int]] = {}
+        self._current_minute: int | None = None
         self._lock = threading.Lock()
 
     def allow(self, client: str) -> bool:
-        minute = int(time.time() // 60)
+        minute = int(self._clock() // 60)
         with self._lock:
+            if minute != self._current_minute:
+                self._window = {
+                    c: wc for c, wc in self._window.items() if wc[0] == minute
+                }
+                self._current_minute = minute
             win, count = self._window.get(client, (minute, 0))
             if win != minute:
                 win, count = minute, 0
@@ -53,6 +67,10 @@ class _RateLimiter:
             self._window[client] = (win, count + 1)
             return True
 
+    def __len__(self) -> int:  # for tests / metrics
+        with self._lock:
+            return len(self._window)
+
 
 def create_app(
     issuer: ReceiptIssuer | None = None,
@@ -60,6 +78,7 @@ def create_app(
     base_url: str = "http://localhost:8000",
     session_rate_per_minute: int = SESSION_RATE_PER_MINUTE,
     lean_bin: str | None | object = _AUTODETECT,
+    nonce_store: NonceStore | None = None,
 ) -> FastAPI:
     issuer = issuer or ReceiptIssuer.generate(issuer_url=base_url)
     if lean_bin is _AUTODETECT:
@@ -67,8 +86,7 @@ def create_app(
     orchestrator = orchestrator or Orchestrator(issuer, lean_bin=lean_bin)
     kernel_tiers_enabled = orchestrator.lean_bin is not None
     limiter = _RateLimiter(session_rate_per_minute)
-    seen_verify_nonces: set[str] = set()
-    verify_lock = threading.Lock()
+    nonces: NonceStore = nonce_store or InMemoryNonceStore()
 
     app = FastAPI(
         title="PoAC — Proof of Agent Capability (prototype)",
@@ -82,6 +100,8 @@ def create_app(
     )
     app.state.issuer = issuer
     app.state.orchestrator = orchestrator
+    app.state.nonce_store = nonces
+    app.state.rate_limiter = limiter
 
     @app.middleware("http")
     async def guard_and_link_headers(request: Request, call_next):
@@ -114,17 +134,34 @@ def create_app(
     ) -> RoundOutcome:
         try:
             return orchestrator.submit(session_id, round_index, body.nonce, body.answer)
+        except VerifierError as exc:
+            raise HTTPException(503, exc.message) from exc
         except SessionError as exc:
             raise HTTPException(404, exc.message) from exc
 
     # --- relying-platform verification --------------------------------------
 
+    @app.get("/v1/verify/nonce", response_model=VerifyNonceResponse)
+    def verify_nonce():
+        """Issue a one-shot nonce the presenter must bind into its KB-JWT."""
+        try:
+            nonce, ttl = nonces.issue()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        return VerifyNonceResponse(nonce=nonce, expires_in=ttl)
+
     @app.post("/v1/verify", response_model=PresentationResult)
     def verify(body: PresentationRequest):
-        with verify_lock:
-            if body.nonce in seen_verify_nonces:
-                return PresentationResult(valid=False, reason="nonce already used")
-            seen_verify_nonces.add(body.nonce)
+        # the nonce is consumed whether or not the presentation verifies,
+        # so a failed attempt cannot be retried with the same nonce
+        state = nonces.consume(body.nonce)
+        if state is NonceState.used:
+            return PresentationResult(valid=False, reason="nonce already used")
+        if state is NonceState.unknown:
+            return PresentationResult(
+                valid=False,
+                reason="nonce not issued by this verifier or expired; GET /v1/verify/nonce",
+            )
         return verify_presentation(
             receipt=body.receipt,
             kb_jwt=body.kb_jwt,

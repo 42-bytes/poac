@@ -78,6 +78,15 @@ class SessionError(Exception):
         self.message = message
 
 
+class VerifierError(SessionError):
+    """The verifier itself failed (e.g. the Lean toolchain crashed).
+
+    Surfaced as HTTP 503. The affected session is voided — the prover did
+    nothing wrong, but the round can no longer be judged, and leaving it
+    half-validated would wedge the session until the sweeper reaps it.
+    """
+
+
 class Orchestrator:
     def __init__(
         self,
@@ -242,12 +251,23 @@ class Orchestrator:
                 return self._finalize_locked(session, state, elapsed_ms, correct)
 
         # --- kernel validation, outside the lock ---
-        result = check_proof(
-            self._lean_bin,
-            preamble=state.payload.preamble,
-            proposition=state.payload.proposition,
-            submission=answer,
-        )
+        try:
+            result = check_proof(
+                self._lean_bin,
+                preamble=state.payload.preamble,
+                proposition=state.payload.proposition,
+                submission=answer,
+            )
+        except Exception as exc:  # toolchain missing/crashed, OS error, ...
+            with self._lock:
+                session = self._sessions.get(session_id)
+                if session is not None and session.round_state is state:
+                    state.validating = False
+                    session.status = "failed"
+                    session.round_state = None
+            raise VerifierError(
+                f"kernel check unavailable ({exc.__class__.__name__}); session voided"
+            ) from exc
 
         with self._lock:
             session = self._sessions.get(session_id)
