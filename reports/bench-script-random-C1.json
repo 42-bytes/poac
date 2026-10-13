@@ -1,0 +1,29 @@
+{
+  "client": "script-random",
+  "client_description": "blind deterministic script: random plausible guesses",
+  "tier": "C1",
+  "transport": "in-process",
+  "sessions": 200,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.0188
+  ],
+  "failure_classes": {
+    "wrong_answer": 200
+  },
+  "solve_latency_ms": {
+    "p50": 0.0,
+    "p95": 0.02,
+    "p99": 0.03
+  },
+  "session_latency_ms": {
+    "p50": 2.18,
+    "p95": 3.23,
+    "p99": 3.61
+  },
+  "mean_session_ms": 2.37,
+  "wall_clock_s": 0.47,
+  "concurrency": 1
+}

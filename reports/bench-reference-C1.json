@@ -1,0 +1,27 @@
+{
+  "client": "reference-solver",
+  "client_description": "source-aware deterministic oracle (demonstrates L2)",
+  "tier": "C1",
+  "transport": "in-process",
+  "sessions": 100,
+  "passes": 100,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.963,
+    1.0
+  ],
+  "failure_classes": {},
+  "solve_latency_ms": {
+    "p50": 0.02,
+    "p95": 0.11,
+    "p99": 0.17
+  },
+  "session_latency_ms": {
+    "p50": 4.76,
+    "p95": 5.2,
+    "p99": 6.4
+  },
+  "mean_session_ms": 4.96,
+  "wall_clock_s": 0.5,
+  "concurrency": 1
+}

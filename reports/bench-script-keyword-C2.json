@@ -1,0 +1,29 @@
+{
+  "client": "script-keyword",
+  "client_description": "blind heuristic script: frequency/positional keyword extraction, no reasoning",
+  "tier": "C2",
+  "transport": "in-process",
+  "sessions": 100,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.037
+  ],
+  "failure_classes": {
+    "wrong_answer": 100
+  },
+  "solve_latency_ms": {
+    "p50": 0.0,
+    "p95": 0.05,
+    "p99": 0.06
+  },
+  "session_latency_ms": {
+    "p50": 2.34,
+    "p95": 3.09,
+    "p99": 4.96
+  },
+  "mean_session_ms": 2.57,
+  "wall_clock_s": 0.26,
+  "concurrency": 1
+}
