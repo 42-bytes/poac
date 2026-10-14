@@ -45,8 +45,11 @@ Measured against the private corpus (2026-10, 10 sessions per cell,
 pass C1–C3 at 9–10/10; Grok 4.7 times out (p95 solve 38–50 s); GPT-5-mini
 passes C1 30/30 but C2 23/30 (timeouts). At C4, Opus 5.5 and Gemini 4 pass
 5/5, GPT-5.5 0/5 (its proofs do not compile — one shot, no compiler
-feedback). The public-template reference solver passes 0/200 against the
-corpus. Tiers therefore separate not only agents from scripts and humans
+feedback). At C5 (5 sessions per cell) Opus 5.5 and Gemini 4 pass 5/5 with
+per-round solve times unchanged from C1–C3; GPT-5.5 2/5, failing the
+`proof` round. The public-template reference
+solver passes 0/200 against the corpus. Full tables and criteria status:
+`reports/prototype-evaluation.md` §0. Tiers therefore separate not only agents from scripts and humans
 but also frontier models from each other.
 
 \* Design targets. The budgets are inputs to calibration, not constants:

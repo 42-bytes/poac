@@ -1,7 +1,88 @@
 # PoAC Prototype — Evaluation Report
 
-Date: 2026-09-04 · Suite: `2026.09-proto` · Protocol 0.1.0
-Companion docs: `docs/protocol.md`, `docs/threat-model.md`.
+Date: 2026-09-04 (prototype gate) · **updated 2026-10-14 (phase 2:
+private corpus + frontier-agent trials)** · Protocol 0.2.0
+Companion docs: `docs/protocol.md`, `docs/threat-model.md`, `docs/corpus.md`.
+
+## 0. Phase-2 update (2026-10-14): measured, not assumed
+
+Everything in §1–§6 below was measured against the *public template*
+generators and is kept for the record. Since then the verifier serves
+rounds from a private LLM-authored corpus (`docs/corpus.md`: 239
+instances, batch `2026-10`, render gpt-5-mini → independent read-back
+claude-sonnet-4.6 → gates), tiers C4/C5 are live, and the public instance
+runs at `https://poac.42bytes.eu`. All rows below: in-process transport,
+sequential sessions, corpus `2026-10`, JSON in this directory
+(`bench-*-corpus.json`, `bench-llm-*-C4.json`).
+
+### 0.1 Scripts and the source-aware oracle against the corpus
+
+| Client | Tier | Pass | Wilson 95% CI | Failure | Reading |
+|---|---|---|---|---|---|
+| reference-solver (source-aware oracle) | C1 | 0/200 | [0%, 1.9%] | all `wrong_answer` | **L2 closed**: oracle was 100/100 on templates |
+| reference-solver (source-aware oracle) | C2 | 0/200 | [0%, 1.9%] | all `wrong_answer` | |
+| script-random / script-keyword | C1 | 0/200 each | [0%, 1.9%] | all `wrong_answer` | criterion 3 holds on the corpus |
+| script-random / script-keyword | C2 | 0/200 each | [0%, 1.9%] | all `wrong_answer` | |
+
+### 0.2 Frontier agents against the corpus (one-shot, no tools, no retries)
+
+| Agent (via OpenRouter) | C1 | C2 | C3 | C4 (Lean) | C5 (all six) | solve p50 / p95 |
+|---|---|---|---|---|---|---|
+| Claude Opus 5.5 | 10/10 | 10/10 | 10/10 | 5/5 | 5/5 | 4.4–7.2 s / 8.3–10.7 s |
+| Gemini 4 Argon | 10/10 | 10/10 | 10/10 | 5/5 | 5/5 | 2.4–4.3 s / 5.2–7.7 s |
+| GPT-5.5 | 10/10 | 10/10 | 9/10 (1 wrong) | 0/5 (non-compiling `simp` proofs) | 2/5 (3 wrong; the `proof` round) | 2.9–4.4 s / 6.9–18.7 s |
+| gpt-5-mini | 30/30 | 23/30 (5 timeout, 2 wrong) | — | — | — | 6.0–7.7 s / 12.7–20.8 s |
+| Grok 4.7 | 7/10 (3 timeout) | 3/10 (5 timeout, 2 expired) | 0/10 (10 timeout) | — | — | 7–26 s / 38–50 s |
+
+Pooled over Opus 5.5 + Gemini 4 + GPT-5.5 at C1: **30/30**, Wilson 95% CI
+[88.6%, 100%] — **criterion 1 met** for current frontier models. Per-model
+C1 10/10 has CI [72.2%, 100%]; 30-session per-model runs are queued.
+
+Readings:
+
+- Capability, not vocabulary, is what separates the rows: every Grok 4.7
+  failure and every gpt-5-mini C2 failure is a *timeout* against the
+  15–20 s round budgets, none a parse or protocol error. A slower
+  reasoning model is slower than the deadline, not confused by the task.
+  This is limitation **L1** made concrete: tier budgets are a knob that
+  trades inclusivity of slower models for distance from the human/relay
+  floor (§4), and the floor is still unmeasured.
+- The C4 split (Opus/Gemini 5/5, GPT-5.5 0/5) is about one-shot Lean
+  without compiler feedback; an agent with a local `lean` loop would close
+  it. C4/C5 therefore measure "can write kernel-checked proofs blind",
+  which is a stricter claim than the tier name suggests; recorded in
+  `protocol.md` §2.1.
+- C5 (6 rounds, each family once, 30 s each) costs Opus/Gemini nothing
+  extra: pass rates and per-round solve times match C1–C3. GPT-5.5 drops
+  to 2/5 because C5 contains one `proof` round and it fails that one blind.
+  The tier's value is coverage: it exposes a family-specific gap that C1–C3
+  hide.
+- Harness lesson: 12 concurrent sessions on one OpenRouter key produced
+  HTTP 429s that the first run recorded as instant wrong answers. The
+  harness now reports `client_error_rounds`; all rows above were rerun
+  sequentially with 0 client errors except Grok C2/C3 (1 each, noted).
+
+### 0.3 Acceptance criteria, phase 2
+
+| Criterion | Status |
+|---|---|
+| 1. Agent pass rate ≥95% at C1 | **MET** for frontier models (30/30 pooled, CI lower bound 88.6%; 10/10 per model) — not met for Grok 4.7 (timeouts) |
+| 2. Unaided human/relay pass ≈0% at C1+ | PENDING — needs volunteers against `poac.42bytes.eu` |
+| 3. Blind script pass <2% at C1 | **MET** on the corpus — 0/400, upper CI 1.9%; source-aware oracle also 0/400 |
+| 4. Receipt theft unusable without holder key | **MET** — adversarial suite unchanged; `poac.rp` end-to-end tests add replay/aud/tier checks |
+| 5. Verifier stable under load, no answer leakage | **MET** — corpus answers never leave the store; public instance served all trials |
+
+### 0.4 Competitor framing (scoped honestly)
+
+Every agent-gating scheme we found (Web Bot Auth key directories, agent
+registries, "agent-only" forums' self-declared gates) answers *who signed
+this* or *who registered*. None measures *what the holder can do under a
+deadline*. PoAC is complementary: the receipt's `cnf.jkt` can be the same
+key as a Web Bot Auth signature (`docs/standards-binding.md`). The honest
+scope of our adversary claims: blind scripts and source-aware scripts
+(0/800 on the corpus) are measured; human relay is not yet; a
+*tool-equipped* agent that is itself a frontier model is not an adversary
+in this model — it is the intended user.
 
 ## 1. What was evaluated
 

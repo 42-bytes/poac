@@ -1,0 +1,34 @@
+{
+  "client": "llm:openrouter:google/gemini-4-argon",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C5",
+  "transport": "in-process+corpus",
+  "sessions": 5,
+  "passes": 5,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.5655,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 4248.79,
+    "p95": 7448.51,
+    "p99": 9648.63
+  },
+  "session_latency_ms": {
+    "p50": 27655.12,
+    "p95": 28897.07,
+    "p99": 28897.07
+  },
+  "mean_session_ms": 27257.48,
+  "wall_clock_s": 136.29,
+  "concurrency": 1,
+  "corpus": {
+    "db": "/tmp/corpus-bench.sqlite",
+    "rounds_served": 15,
+    "template_fallbacks": {}
+  }
+}
