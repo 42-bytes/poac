@@ -71,7 +71,7 @@ three standard axioms.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 poac-verifier --port 8000            # or: uvicorn --factory poac.api.app:create_app
-pytest                               # 292 tests; Lean-dependent ones skip without a toolchain
+pytest                               # 312 tests; Lean-dependent ones skip without a toolchain
 ```
 
 One replica needs no configuration. For several replicas share a SQLite
@@ -124,10 +124,14 @@ path. All fail closed. Findings and accepted trade-offs are in
 
 Prototype. The built-in challenge generators are public templates, so a
 source-aware script can pass (limitation L2, demonstrated by the reference
-solver). The production design replaces them with a private, rotated,
-LLM-authored corpus validated deterministically — see `docs/protocol.md`
-§5. Receipts are honest about what they prove. Do not deploy this as a
-security boundary yet.
+solver). `poac-corpus` replaces the surface text of the `nlu`/`logic`/`data`
+families with an LLM-authored, privately held, rotated corpus whose answers
+stay code-derived and whose instances are rejected unless an independent
+read-back matches and the reference solver *fails* — see
+[`docs/corpus.md`](docs/corpus.md). A verifier without a corpus, or one
+whose corpus runs dry, is back at L2 (logged and counted). Receipts are
+honest about what they prove. Do not deploy this as a security boundary
+yet.
 
 ## Layout
 
@@ -136,6 +140,8 @@ docs/protocol.md           protocol spec, tiers, acceptance criteria
 docs/threat-model.md       adversary profiles, attacks, limitations
 docs/deployment.md         hardened container (pinned Lean, no network, read-only)
 docs/persistence.md        shared SQLite state for multi-replica deployments
+docs/corpus.md             private LLM-authored corpus: specs, read-back gate, rotation
+src/poac/corpus/           specs, authors (stub + Pydantic AI), store, build, poac-corpus CLI
 src/poac/protocol/         strict Pydantic wire contracts
 src/poac/challenges/       six generators + registry + Lean kernel validator + source seam
 src/poac/sessions/         tier config, HMAC-chained orchestration, memory/SQLite stores

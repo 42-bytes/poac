@@ -146,7 +146,8 @@ Prototype limitation (documented, accepted): generators are template-based,
 so an adversary with full source access can write family-specific solvers.
 Anti-script strength in the prototype comes from NL surface variation and
 family chaining; production strength requires an LLM-authored, private,
-rotated corpus (Phase 2). This applies to the `proof` grammar too: its
+rotated corpus (Phase 2 — implemented for `nlu`/`logic`/`data` in
+`poac.corpus`, see `docs/corpus.md`). This applies to the `proof` grammar too: its
 current recurrence schemas are enumerable, and Phase 2 requires a broader
 proposition space (with each instance still validated by generation-time
 kernel checks).

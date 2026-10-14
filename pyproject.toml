@@ -25,6 +25,7 @@ llm = ["pydantic-ai-slim>=1.0"]
 
 [project.scripts]
 poac-verifier = "poac.api.cli:main"
+poac-corpus = "poac.corpus.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

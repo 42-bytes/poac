@@ -77,9 +77,17 @@ are consumed):
 - **L2** Template-based generators mean a source-aware adversary can write
   family-specific deterministic solvers. Acceptable for the prototype;
   production requires a private, rotated, LLM-authored corpus with
-  adversarial screening (Phase 2).
-- **L3** In-memory session store: no durability, single process. Phase 2:
-  PostgreSQL/Redis.
+  adversarial screening (Phase 2). *Phase 2 status:* `poac.corpus`
+  implements the corpus for `nlu`/`logic`/`data` with code-derived answers,
+  independent read-back and a reject-if-template-solvable gate
+  (`docs/corpus.md`). Residual: `code`/`diagram`/`proof` remain templated;
+  a corpus-backed verifier that runs dry silently falls back to templates
+  (counted and logged); blind-script measurement against a real corpus is
+  pending (track B2).
+- **L3** In-memory session store: no durability, single process. *Phase 2
+  status:* SQLite-backed session and nonce stores for multi-replica
+  deployments (`docs/persistence.md`); PostgreSQL/Redis remain a
+  `SessionStore`/`NonceStore` implementation away.
 - **L4** Issuer key on local disk for the prototype. Phase 2: KMS/HSM.
 - **L5** Human/relay failure counts are small-sample; report confidence
   intervals, never "proven impossible".

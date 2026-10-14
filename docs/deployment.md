@@ -46,3 +46,11 @@ the previous key in the JWKS for one receipt TTL after rotation.
 
 Sessions and verify nonces are in-memory by default (single replica). For
 multiple replicas use the SQLite-backed stores (`docs/persistence.md`).
+
+## Challenge corpus
+
+Without `--corpus-db` (`POAC_CORPUS_DB`) every round comes from the public
+template generators (limitation L2). Build a corpus with `poac-corpus`,
+mount it on a writable volume (every draw updates exposure counters, so
+the read-only root will not do) and point the verifier at it; see
+`docs/corpus.md`.
