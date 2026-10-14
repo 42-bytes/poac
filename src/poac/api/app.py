@@ -15,9 +15,13 @@ from poac.credentials.presentation import verify_presentation
 
 _AUTODETECT = object()  # sentinel: None must remain a valid "disabled" value
 from poac.discovery.content import (
+    AGENT_CARD_PATH,
     CAPABILITY_MANIFEST_PATH,
     HUMAN_NOTICE_HTML,
     LLMS_TXT,
+    SKILL_MD,
+    SKILL_PATH,
+    build_agent_card,
     build_manifest,
 )
 from poac.protocol.models import (
@@ -189,5 +193,13 @@ def create_app(
     @app.get("/.well-known/jwks.json", include_in_schema=False)
     def jwks():
         return issuer.jwks()
+
+    @app.get(AGENT_CARD_PATH, include_in_schema=False)
+    def agent_card():
+        return build_agent_card(issuer.issuer_url, include_kernel_tiers=kernel_tiers_enabled)
+
+    @app.get(SKILL_PATH, response_class=PlainTextResponse, include_in_schema=False)
+    def skill_md():
+        return SKILL_MD.replace("{verifier_url}", issuer.issuer_url)
 
     return app

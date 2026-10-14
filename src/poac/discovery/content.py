@@ -91,8 +91,125 @@ Important: {HONEST_CLAIMS}
 
 - [OpenAPI](/openapi.json): all request/response schemas
 - [Manifest]({CAPABILITY_MANIFEST_PATH}): tiers and budgets
+- [Agent Card](/.well-known/agent-card.json): A2A-style discovery record
+- [Skill](/skill.md): loadable SKILL.md with the exact steps and per-family answering tips
 - [JWKS](/.well-known/jwks.json): issuer public keys
 - [Human notice](/): explanation for human visitors
+"""
+
+
+AGENT_CARD_PATH = "/.well-known/agent-card.json"
+SKILL_PATH = "/skill.md"
+
+
+def build_agent_card(issuer_url: str, include_kernel_tiers: bool = True) -> dict:
+    """A2A-style Agent Card so A2A-aware agents discover PoAC the way they
+    discover any other agent. PoAC is not an A2A agent (it speaks plain
+    HTTP+JSON), so `preferredTransport` says so and `url` is the OpenAPI
+    root; the skills list mirrors the tiers."""
+    tiers = [
+        t for t, cfg in TIERS.items() if include_kernel_tiers or not tier_requires_kernel(cfg)
+    ]
+    return {
+        "name": "PoAC — Proof of Agent Capability",
+        "description": (
+            "Reverse-CAPTCHA verifier: timed, chained challenges that capable "
+            "autonomous agents pass and humans cannot. Issues short-lived, "
+            "holder-key-bound Ed25519 receipts (JWS) that relying platforms "
+            "verify with one call."
+        ),
+        "url": issuer_url,
+        "preferredTransport": "HTTP+JSON",
+        "version": PROTOCOL_VERSION,
+        "protocolVersion": "0.3",
+        "documentationUrl": f"{issuer_url}/llms.txt",
+        "provider": {"organization": "PoAC project", "url": issuer_url},
+        "capabilities": {"streaming": False, "pushNotifications": False},
+        "defaultInputModes": ["application/json"],
+        "defaultOutputModes": ["application/json"],
+        "securitySchemes": {
+            "poacReceipt": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "PoAC receipt (JWS) + key-binding JWT; see /llms.txt §4",
+            }
+        },
+        "skills": [
+            {
+                "id": f"poac-{t.value.lower()}",
+                "name": f"Earn a {t.value} capability receipt",
+                "description": (
+                    f"{TIERS[t].rounds} round(s), {TIERS[t].round_deadline_ms // 1000} s each, "
+                    f"families: {', '.join(TIERS[t].families)}"
+                ),
+                "tags": ["capability", "verification", t.value.lower()],
+                "examples": [f'POST {issuer_url}/v1/sessions {{"tier": "{t.value}"}}'],
+            }
+            for t in tiers
+        ],
+        "x-poac": {
+            "manifest": f"{issuer_url}{CAPABILITY_MANIFEST_PATH}",
+            "skill_md": f"{issuer_url}{SKILL_PATH}",
+            "jwks": f"{issuer_url}/.well-known/jwks.json",
+        },
+    }
+
+
+SKILL_MD = f"""---
+name: pass-poac
+description: Earn and present a PoAC (Proof of Agent Capability) receipt. Use when a site or API says it requires PoAC, returns 401/403 mentioning PoAC, or links to /.well-known/agent-capability.json.
+---
+
+# Pass a PoAC capability check
+
+PoAC is a reverse CAPTCHA: solve a few timed challenges, get a signed
+receipt bound to your key, present it to the platform that asked. Nothing
+here needs a browser. Deadlines are measured by the server; do not stall
+between rounds — read the challenge, answer, submit, repeat.
+
+## Fastest path (Python)
+
+```python
+pip install poac            # or: pip install git+<repo>
+from poac.client import PoacClient
+agent = PoacClient("{{verifier_url}}")          # keep agent.key; save with agent.key.save(path)
+receipt = agent.earn("C1", solver=answer)       # answer(challenge) -> str, see below
+kb_jwt = agent.present(receipt, audience=platform_url, nonce=platform_nonce)
+```
+
+Send `receipt.token` and `kb_jwt` to the platform the way it asks (header
+`Authorization: PoAC <receipt>` + `PoAC-KB: <kb_jwt>`, or its own form).
+
+## Raw HTTP (any language)
+
+1. `GET {{verifier_url}}{CAPABILITY_MANIFEST_PATH}` — tiers, budgets, endpoints.
+2. `POST /v1/sessions` `{{"tier": "C1", "holder_jwk": {{"kty":"OKP","crv":"Ed25519","x":"..."}}}}`
+   → `session_id`, round 1 (`challenge`, `nonce`, `time_budget_ms`).
+3. For each round: `POST /v1/sessions/{{session_id}}/rounds/{{round_index}}`
+   `{{"nonce": ..., "answer": ...}}` within the budget. `status: next` → go
+   on; `status: passed` → `receipt`; `status: failed` → start a new session.
+4. To present: ask the platform for its nonce (it fetched
+   `GET /v1/verify/nonce`), sign a JWT with your Ed25519 key, header
+   `{{"alg":"Ed25519","typ":"poac-kb+jwt","jwk":<public jwk>}}`, claims
+   `{{"aud": platform_url, "nonce": nonce, "iat": now, "receipt_hash": b64url(sha256(receipt))}}`.
+
+## Answering challenges
+
+Each challenge has `family` and an `answer_format` hint. Return only the
+answer, no explanation.
+
+- `nlu`: read the whole narrative; the question names exact conditions; answer with the single entity name.
+- `logic`: parse every constraint, solve the ordering, answer with the name only.
+- `data`: filter `rows` by ALL stated conditions (ignore the stated distractors), compute the metric, answer with the integer.
+- `code`: predict the program's printed output exactly.
+- `diagram`: the SVG is a weighted graph; compute the cheapest path weight between the named nodes.
+- `proof` (C4/C5): return only the Lean 4 text after `:=`, usually a `by` block. Core Lean only, no imports, no `#` commands, no `sorry`. `omega` closes linear arithmetic; recurrences need `induction n with | zero => rfl | succ k ih => simp only [defs]; omega`.
+
+## Expectations
+
+- One submission per round; a wrong answer or a late answer ends the session. Starting over is fine.
+- Receipts expire (`exp`); earn a new one rather than caching for long.
+- A receipt proves capability of the key holder under a deadline, nothing about intent. Platforms may add their own rules.
 """
 
 

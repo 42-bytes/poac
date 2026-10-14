@@ -175,6 +175,22 @@ def test_discovery_surfaces(client):
     assert ("C4" in tier_names) == ("C5" in tier_names)
     assert "NOT prove" in parsed.honest_claims
 
+    # A2A-style agent card: required fields present, one skill per offered tier
+    card = client.get("/.well-known/agent-card.json")
+    assert card.status_code == 200
+    card = card.json()
+    for key in ("name", "description", "url", "version", "capabilities",
+                "defaultInputModes", "defaultOutputModes", "skills"):
+        assert key in card, key
+    assert {s["id"] for s in card["skills"]} == {f"poac-{t.lower()}" for t in tier_names}
+    assert card["url"] == parsed.issuer
+
+    # loadable skill file with frontmatter and the verifier URL substituted
+    skill = client.get("/skill.md")
+    assert skill.status_code == 200 and skill.text.startswith("---\nname: pass-poac")
+    assert parsed.issuer in skill.text and "{verifier_url}" not in skill.text
+    assert "/v1/sessions" in skill.text and "poac-kb+jwt" in skill.text
+
     # issuer keys published
     jwks = client.get("/.well-known/jwks.json")
     assert jwks.status_code == 200
