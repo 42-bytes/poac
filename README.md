@@ -71,8 +71,13 @@ three standard axioms.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 poac-verifier --port 8000            # or: uvicorn --factory poac.api.app:create_app
-pytest                               # 267 tests; Lean-dependent ones skip without a toolchain
+pytest                               # 292 tests; Lean-dependent ones skip without a toolchain
 ```
+
+One replica needs no configuration. For several replicas share a SQLite
+state file, the server secret and the issuer key — see
+[`docs/persistence.md`](docs/persistence.md); for the hardened container see
+[`docs/deployment.md`](docs/deployment.md).
 
 Then explore:
 
@@ -129,9 +134,11 @@ security boundary yet.
 ```
 docs/protocol.md           protocol spec, tiers, acceptance criteria
 docs/threat-model.md       adversary profiles, attacks, limitations
+docs/deployment.md         hardened container (pinned Lean, no network, read-only)
+docs/persistence.md        shared SQLite state for multi-replica deployments
 src/poac/protocol/         strict Pydantic wire contracts
-src/poac/challenges/       six generators + registry + Lean kernel validator
-src/poac/sessions/         tier config + HMAC-chained timed orchestration
+src/poac/challenges/       six generators + registry + Lean kernel validator + source seam
+src/poac/sessions/         tier config, HMAC-chained orchestration, memory/SQLite stores
 src/poac/credentials/      Ed25519 receipt issuance + KB-JWT verification
 src/poac/api/              FastAPI app factory + console entry point
 src/poac/discovery/        llms.txt, human notice, capability manifest

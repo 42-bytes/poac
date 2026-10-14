@@ -178,7 +178,7 @@ def test_kernel_exception_voids_session_instead_of_wedging(monkeypatch):
     # "being validated"
     with pytest.raises(SessionError, match="no longer active"):
         orch.submit(created.session_id, 1, created.round.nonce, "by decide")
-    session = orch._sessions[created.session_id]
+    session = orch.store.get(created.session_id)
     assert session.status == "failed" and session.round_state is None
 
 

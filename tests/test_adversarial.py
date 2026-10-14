@@ -214,8 +214,9 @@ def test_concurrent_submission_during_kernel_validation_is_rejected(orch, clock)
     """White-box: the `validating` flag must block a second submission racing
     the (slow, lock-free) kernel check for the same round."""
     created = orch.create_session(CapabilityTier.C1, None)
-    session = orch._sessions[created.session_id]
+    session = orch.store.get(created.session_id)
     session.round_state.validating = True
+    orch.store.put(session)
     with pytest.raises(SessionError, match="being validated"):
         orch.submit(created.session_id, 1, created.round.nonce, "answer")
 

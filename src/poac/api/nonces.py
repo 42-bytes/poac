@@ -80,3 +80,59 @@ class InMemoryNonceStore:
     def __len__(self) -> int:  # for tests / metrics
         with self._lock:
             return len(self._entries)
+
+
+class SqliteNonceStore:
+    """Shared-by-replicas variant. Uses wall-clock time (comparable across
+    hosts); each operation is a single atomic statement."""
+
+    def __init__(
+        self,
+        path: str,
+        ttl_s: int = DEFAULT_NONCE_TTL_S,
+        clock: Callable[[], float] = time.time,
+        busy_timeout_ms: int = 5_000,
+    ):
+        import sqlite3
+
+        self._ttl = ttl_s
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(
+            path, check_same_thread=False, isolation_level=None,
+            timeout=busy_timeout_ms / 1000,
+        )
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS verify_nonces ("
+            " nonce TEXT PRIMARY KEY, expires_at REAL NOT NULL, used INTEGER NOT NULL)"
+        )
+
+    def issue(self) -> tuple[str, int]:
+        now = self._clock()
+        nonce = secrets.token_urlsafe(24)
+        with self._lock:
+            self._conn.execute("DELETE FROM verify_nonces WHERE expires_at <= ?", (now,))
+            self._conn.execute(
+                "INSERT INTO verify_nonces(nonce, expires_at, used) VALUES (?, ?, 0)",
+                (nonce, now + self._ttl),
+            )
+        return nonce, self._ttl
+
+    def consume(self, nonce: str) -> NonceState:
+        now = self._clock()
+        with self._lock:
+            # atomic claim: only the first caller flips used 0 -> 1
+            cur = self._conn.execute(
+                "UPDATE verify_nonces SET used = 1"
+                " WHERE nonce = ? AND used = 0 AND expires_at > ?",
+                (nonce, now),
+            )
+            if cur.rowcount == 1:
+                return NonceState.fresh
+            row = self._conn.execute(
+                "SELECT used FROM verify_nonces WHERE nonce = ? AND expires_at > ?",
+                (nonce, now),
+            ).fetchone()
+        return NonceState.used if row else NonceState.unknown
