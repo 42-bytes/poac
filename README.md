@@ -23,6 +23,46 @@ their own authorization and abuse controls on top. See
 [`docs/threat-model.md`](docs/threat-model.md) for the full honest-claims
 analysis.
 
+## Quickstart (agents and relying parties)
+
+```python
+from poac.client import PoacClient
+
+agent = PoacClient("https://poac.42bytes.eu")           # generates an Ed25519 holder key
+receipt = agent.earn("C1", solver=my_solver)            # my_solver(challenge) -> str
+
+rp = PoacClient("https://poac.42bytes.eu")              # relying party side
+nonce = rp.verify_nonce()                               # hand this to the agent
+kb_jwt = agent.present(receipt, audience="https://rp.example", nonce=nonce)
+assert rp.verify(receipt, kb_jwt, audience="https://rp.example", nonce=nonce)["valid"]
+```
+
+`solver` receives a typed challenge (`NluChallenge`, `ProofChallenge`, …)
+and returns the answer string; the client handles keys, nonces, the round
+loop and deadlines.
+
+Relying parties that run FastAPI gate an endpoint with `poac.rp`:
+
+```python
+from poac.rp import PoacGate
+gate = PoacGate(verifier_url="https://poac.42bytes.eu",
+                audience="https://forum.example", min_tier="C1")
+app.include_router(gate.router)                 # GET /poac/nonce for agents
+
+@app.post("/posts")
+def create_post(agent=Depends(gate.require)):   # 401 + WWW-Authenticate: PoAC … otherwise
+    return {"by": agent.holder_thumbprint, "tier": agent.tier}
+```
+
+Agents send `Authorization: PoAC <receipt>` and `PoAC-KB: <kb_jwt>`.
+
+Agents that speak MCP (Claude, Cursor, Codex, …) can use the bundled server
+instead of writing code: `pip install "poac[mcp]"` then register
+`poac-mcp` (stdio) — tools `poac_discover/start/submit/present/verify`, with a
+persistent holder key at `~/.poac/holder.jwk`. The verifier also serves a
+loadable [`/skill.md`](https://poac.42bytes.eu/skill.md) and an A2A-style
+[`/.well-known/agent-card.json`](https://poac.42bytes.eu/.well-known/agent-card.json).
+
 ## How it works
 
 1. **Session** — `POST /v1/sessions` with a tier (`C0`–`C5`) and optionally
@@ -73,7 +113,7 @@ three standard axioms.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 poac-verifier --port 8000            # or: uvicorn --factory poac.api.app:create_app
-pytest                               # 312 tests; Lean-dependent ones skip without a toolchain
+pytest                               # 337 tests; Lean-dependent ones skip without a toolchain
 ```
 
 One replica needs no configuration. For several replicas share a SQLite
@@ -86,6 +126,8 @@ Then explore:
 - `http://localhost:8000/` — notice for human visitors
 - `http://localhost:8000/llms.txt` — agent instructions
 - `http://localhost:8000/.well-known/agent-capability.json` — machine manifest
+- `http://localhost:8000/.well-known/agent-card.json` — A2A-style agent card
+- `http://localhost:8000/skill.md` — loadable skill: how to pass PoAC
 - `http://localhost:8000/openapi.json` — API schemas
 - `http://localhost:8000/.well-known/jwks.json` — issuer public keys
 
@@ -149,7 +191,10 @@ src/poac/challenges/       six generators + registry + Lean kernel validator + s
 src/poac/sessions/         tier config, HMAC-chained orchestration, memory/SQLite stores
 src/poac/credentials/      Ed25519 receipt issuance + KB-JWT verification
 src/poac/api/              FastAPI app factory + console entry point
-src/poac/discovery/        llms.txt, human notice, capability manifest
+src/poac/discovery/        llms.txt, human notice, manifest, agent card, skill.md
+src/poac/client.py         PoacClient: earn / present / verify + HolderKey
+src/poac/rp.py             PoacGate: FastAPI dependency for relying parties
+src/poac/mcp_server.py     poac-mcp: MCP tools for agents that cannot run code
 src/poac/reference/        payload-only oracle solver (evaluation only)
 benchmarks/                prover clients + harness + stats
 tests/                     contract, property, session, credential, kernel, red-team suites

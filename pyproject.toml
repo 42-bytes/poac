@@ -22,10 +22,13 @@ dependencies = [
 dev = ["pytest>=8.0"]
 # LLM-authored private corpus + LLM agent benchmark client
 llm = ["pydantic-ai-slim>=1.0"]
+# `poac-mcp` server for MCP-capable agents
+mcp = ["mcp>=2.0"]
 
 [project.scripts]
 poac-verifier = "poac.api.cli:main"
 poac-corpus = "poac.corpus.cli:main"
+poac-mcp = "poac.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
