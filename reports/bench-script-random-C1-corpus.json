@@ -1,0 +1,34 @@
+{
+  "client": "script-random",
+  "client_description": "blind deterministic script: random plausible guesses",
+  "tier": "C1",
+  "transport": "in-process+corpus",
+  "sessions": 200,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.0188
+  ],
+  "failure_classes": {
+    "wrong_answer": 200
+  },
+  "solve_latency_ms": {
+    "p50": 0.01,
+    "p95": 0.02,
+    "p99": 0.03
+  },
+  "session_latency_ms": {
+    "p50": 2.26,
+    "p95": 2.93,
+    "p99": 3.6
+  },
+  "mean_session_ms": 2.42,
+  "wall_clock_s": 0.48,
+  "concurrency": 1,
+  "corpus": {
+    "db": "/tmp/corpus-bench.sqlite",
+    "rounds_served": 207,
+    "template_fallbacks": {}
+  }
+}

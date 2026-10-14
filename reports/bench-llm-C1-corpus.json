@@ -1,0 +1,32 @@
+{
+  "client": "llm:openrouter:openai/gpt-5-mini",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C1",
+  "transport": "in-process+corpus",
+  "sessions": 30,
+  "passes": 30,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.8865,
+    1.0
+  ],
+  "failure_classes": {},
+  "solve_latency_ms": {
+    "p50": 6028.51,
+    "p95": 12701.33,
+    "p99": 14041.91
+  },
+  "session_latency_ms": {
+    "p50": 20185.57,
+    "p95": 24906.2,
+    "p99": 25878.79
+  },
+  "mean_session_ms": 20261.95,
+  "wall_clock_s": 212.38,
+  "concurrency": 3,
+  "corpus": {
+    "db": "/tmp/corpus-bench.sqlite",
+    "rounds_served": 90,
+    "template_fallbacks": {}
+  }
+}

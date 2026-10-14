@@ -115,17 +115,33 @@ def main() -> None:
     ap.add_argument("--sessions", type=int, default=20)
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--base-url", help="run against a deployed verifier instead of in-process")
+    ap.add_argument("--corpus-db", help="in-process only: serve rounds from this private corpus "
+                    "(exposure cap lifted so the benchmark does not retire instances)")
     args = ap.parse_args()
 
     prover = make_client(args.client, args.model)
+    source = None
+    if args.corpus_db:
+        if args.base_url:
+            raise SystemExit("--corpus-db applies to in-process runs; a deployed verifier has its own")
+        from poac.corpus import CorpusSource, CorpusStore
+
+        source = CorpusSource(CorpusStore(args.corpus_db, max_exposures=10**9))
     if args.base_url:
         http = httpx.Client(base_url=args.base_url, timeout=120)
         transport = "network"
     else:
         # in-process runs disable the ops rate limit so the harness measures
         # protocol behavior, not its own throttling
-        http = TestClient(create_app(session_rate_per_minute=10_000_000))
-        transport = "in-process"
+        orchestrator = None
+        if source is not None:
+            from poac.challenges.proof_check import find_lean
+            from poac.credentials.issuer import ReceiptIssuer
+            from poac.sessions.orchestrator import Orchestrator
+
+            orchestrator = Orchestrator(ReceiptIssuer.generate(), lean_bin=find_lean(), source=source)
+        http = TestClient(create_app(orchestrator=orchestrator, session_rate_per_minute=10_000_000))
+        transport = "in-process+corpus" if source else "in-process"
 
     t0 = time.perf_counter()
     if args.concurrency > 1:
@@ -163,9 +179,15 @@ def main() -> None:
         "wall_clock_s": round(wall_s, 2),
         "concurrency": args.concurrency,
     }
+    if source is not None:
+        summary["corpus"] = {
+            "db": args.corpus_db, "rounds_served": source.served,
+            "template_fallbacks": {f"{k[0]}/d{k[1]}": v for k, v in source.fallbacks.items()},
+        }
 
     REPORT_DIR.mkdir(exist_ok=True)
-    out = REPORT_DIR / f"bench-{args.client}-{args.tier}.json"
+    suffix = "-corpus" if source is not None else ""
+    out = REPORT_DIR / f"bench-{args.client}-{args.tier}{suffix}.json"
     out.write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
     print(f"\nwritten to {out}")
