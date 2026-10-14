@@ -28,23 +28,7 @@ from fastapi.testclient import TestClient
 from benchmarks import clients as client_mod
 from benchmarks.stats import percentiles, wilson_ci
 from poac.api.app import create_app
-from poac.protocol.models import (
-    CodeChallenge,
-    DataChallenge,
-    DiagramChallenge,
-    LogicChallenge,
-    NluChallenge,
-    ProofChallenge,
-)
-
-_PAYLOADS = {
-    "nlu": NluChallenge,
-    "code": CodeChallenge,
-    "logic": LogicChallenge,
-    "data": DataChallenge,
-    "diagram": DiagramChallenge,
-    "proof": ProofChallenge,
-}
+from poac.client import PoacClient, PoacError, SessionFailed
 
 REPORT_DIR = Path(__file__).resolve().parents[1] / "reports"
 
@@ -64,50 +48,38 @@ def make_client(kind: str, model: str | None):
 
 
 def run_session(http, prover, tier: str) -> dict:
-    """Play one full session; returns pass/fail + per-round latency."""
+    """Play one full session via ``poac.client``; returns pass/fail + per-round latency."""
     t_start = time.perf_counter()
-    resp = http.post("/v1/sessions", json={"tier": tier})
-    if resp.status_code == 429:
-        time.sleep(2)
-        resp = http.post("/v1/sessions", json={"tier": tier})
-    if resp.status_code != 201:
-        return {"passed": False, "error": f"http {resp.status_code}", "rounds": 0}
-    data = resp.json()
-    rnd = data["round"]
     round_latencies: list[float] = []
-    families: list[str] = []
     client_errors: list[str] = []
-    while True:
-        fam = rnd["challenge"]["family"]
-        families.append(fam)
-        payload = _PAYLOADS[fam].model_validate(rnd["challenge"])
-        t0 = time.perf_counter()
+
+    def solver(challenge) -> str:
         try:
-            answer = prover.answer(payload)
+            return str(prover.answer(challenge))[:2000]
         except Exception as exc:  # noqa: BLE001 - recorded, not hidden
-            answer = "solver-error"
             client_errors.append(f"{type(exc).__name__}: {str(exc)[:120]}")
-        solve_ms = (time.perf_counter() - t0) * 1000
-        resp = http.post(
-            f"/v1/sessions/{data['session_id']}/rounds/{rnd['round_index']}",
-            json={"nonce": rnd["nonce"], "answer": str(answer)[:2000]},
-        )
-        if resp.status_code != 200:
-            return {"passed": False, "error": f"http {resp.status_code}", "rounds": len(round_latencies)}
-        outcome = resp.json()
-        round_latencies.append(solve_ms)
-        if outcome["status"] == "next":
-            rnd = outcome["round"]
-            continue
+            return "solver-error"
+
+    def on_round(_rnd, _answer, dt: float) -> None:
+        round_latencies.append(dt * 1000)
+
+    pc = PoacClient(base_url="", http=http)
+    try:
+        receipt = pc.earn(tier, solver, bind_key=False, on_round=on_round)
+    except SessionFailed as sf:
         return {
-            "passed": outcome["status"] == "passed",
-            "failure": outcome.get("failure"),
-            "families": families,
-            "solve_ms": round_latencies,
-            "session_ms": (time.perf_counter() - t_start) * 1000,
-            "rounds": len(round_latencies),
-            "client_errors": client_errors,
+            "passed": False, "failure": sf.failure.value, "families": sf.families,
+            "solve_ms": round_latencies, "session_ms": (time.perf_counter() - t_start) * 1000,
+            "rounds": len(round_latencies), "client_errors": client_errors,
         }
+    except PoacError as pe:
+        return {"passed": False, "error": str(pe)[:80], "rounds": len(round_latencies),
+                "client_errors": client_errors}
+    return {
+        "passed": True, "failure": None, "families": receipt.families,
+        "solve_ms": round_latencies, "session_ms": (time.perf_counter() - t_start) * 1000,
+        "rounds": len(round_latencies), "client_errors": client_errors,
+    }
 
 
 def main() -> None:
