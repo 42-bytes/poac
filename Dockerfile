@@ -35,7 +35,9 @@ WORKDIR /app
 COPY --chown=poac:poac pyproject.toml README.md LICENSE ./
 COPY --chown=poac:poac src ./src
 RUN pip install --no-cache-dir . \
- && rm -rf /root/.cache
+ && rm -rf /root/.cache \
+ && install -d -o poac -g poac -m 700 /data   # persistent state; ownership seeds fresh named volumes
+VOLUME /data
 USER poac
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \

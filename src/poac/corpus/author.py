@@ -229,7 +229,11 @@ _RENDER_INSTRUCTIONS = {
         "single instruction, in the style of the given theme, that unambiguously "
         "asks for that metric over rows matching ALL filter conditions, mentions "
         "at least one distractor condition the reader must ignore, and ends with "
-        "'Answer with the integer only.' Use the exact region and status values."
+        "'Answer with the integer only.' Use the exact region and status values "
+        "as plain words. Write for a reader who has never seen the spec: do not "
+        "use spec field names or identifiers such as min_price, sum_units, "
+        "max_price, metric, '==' or '>='; say 'at least', 'total units', "
+        "'highest price', 'number of orders' instead."
     ),
 }
 

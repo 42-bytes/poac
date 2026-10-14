@@ -88,15 +88,17 @@ def _check_nlu(spec: NluSpec, rb: NluReadback) -> list[str]:
     errs = []
     if rb.cutoff != spec.cutoff:
         errs.append(f"cutoff {rb.cutoff} != {spec.cutoff}")
-    want = {n.name: n for n in spec.nodes}
-    got = {n.name: n for n in rb.facts}
+    want = {n.name.lower(): n for n in spec.nodes}
+    got = {n.name.lower(): n for n in rb.facts}
     if set(want) != set(got):
         errs.append(f"nodes {sorted(got)} != {sorted(want)}")
     for name in set(want) & set(got):
-        for f in ("day", "checksum", "site"):
+        for f in ("day", "checksum"):
             if getattr(want[name], f) != getattr(got[name], f):
                 errs.append(f"{name}.{f}: {getattr(got[name], f)!r} != {getattr(want[name], f)!r}")
-    if rb.answer != spec.answer:
+        if want[name].site.lower() != got[name].site.lower():
+            errs.append(f"{name}.site: {got[name].site!r} != {want[name].site!r}")
+    if rb.answer.strip().lower() != spec.answer.lower():
         errs.append(f"answer {rb.answer!r} != {spec.answer!r}")
     return errs
 
@@ -122,7 +124,7 @@ class Constraint(_Model):
         return p.index(self.a) in (0, len(p) - 1)
 
     def key(self) -> tuple:
-        return (self.kind, self.a, self.b, self.position)
+        return (self.kind, self.a.lower(), self.b.lower() if self.b else None, self.position)
 
 
 class LogicSpec(_Model):
@@ -188,7 +190,7 @@ def sample_logic(rng: random.Random, difficulty: int) -> LogicSpec:
 
 def _check_logic(spec: LogicSpec, rb: LogicReadback) -> list[str]:
     errs = []
-    if sorted(rb.names) != spec.names:
+    if sorted(n.lower() for n in rb.names) != [n.lower() for n in spec.names]:
         errs.append(f"names {sorted(rb.names)} != {spec.names}")
     want = {c.key() for c in spec.constraints}
     got = {c.key() for c in rb.constraints}
@@ -196,7 +198,7 @@ def _check_logic(spec: LogicSpec, rb: LogicReadback) -> list[str]:
         errs.append(f"constraints missing={sorted(want - got)} extra={sorted(got - want)}")
     if rb.query_position != spec.query_position:
         errs.append(f"query_position {rb.query_position} != {spec.query_position}")
-    if rb.answer != spec.answer:
+    if rb.answer.strip().lower() != spec.answer.lower():
         errs.append(f"answer {rb.answer!r} != {spec.answer!r}")
     return errs
 
@@ -267,10 +269,13 @@ def sample_data(rng: random.Random, difficulty: int) -> DataSpec:
 
 def _check_data(spec: DataSpec, rb: DataReadback) -> list[str]:
     errs = []
-    for f in ("region", "status", "min_price", "metric"):
+    for f in ("region", "status"):
+        if getattr(rb, f).lower() != getattr(spec, f):
+            errs.append(f"{f}: {getattr(rb, f)!r} != {getattr(spec, f)!r}")
+    for f in ("min_price", "metric"):
         if getattr(rb, f) != getattr(spec, f):
             errs.append(f"{f}: {getattr(rb, f)!r} != {getattr(spec, f)!r}")
-    if rb.answer != spec.answer:
+    if rb.answer.strip() != spec.answer:
         errs.append(f"answer {rb.answer!r} != {spec.answer!r}")
     return errs
 
