@@ -208,12 +208,22 @@ key; KB `aud`/`nonce` match the verifier's values; `receipt_hash` matches;
 KB `iat` within skew. Any failure is a hard reject. Only `EdDSA` is
 accepted for both signatures (no algorithm negotiation).
 
+Relying platforms integrate through `poac.rp.PoacGate` (FastAPI
+dependency: nonce proxy at `/poac/nonce`, `Authorization: PoAC <receipt>`
++ `PoAC-KB: <kb_jwt>`, `WWW-Authenticate: PoAC …` challenge on failure).
+Profiles for carrying the receipt on RFC 9421 / Web Bot Auth, DPoP and
+SD-JWT VC are in [`standards-binding.md`](standards-binding.md).
+
 ## 7. Discovery
 
 - `/` — human-readable notice: purpose, limitations, alternatives for humans.
 - `/llms.txt` — machine-readable overview and entry points.
 - `/.well-known/agent-capability.json` — manifest: tiers, budgets,
   endpoints, schema URLs, suite version, honest-claims statement.
+- `/.well-known/agent-card.json` — A2A-style Agent Card (one skill per
+  tier) for A2A-aware discovery.
+- `/skill.md` — loadable skill (frontmatter + steps + per-family answering
+  tips) for agents that consume SKILL.md / agents.md files.
 - `/.well-known/jwks.json` — issuer public keys.
 - HTTP `Link` headers (`rel=describedby`, `rel=service-desc`) on all
   responses.

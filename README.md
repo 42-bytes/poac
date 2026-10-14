@@ -184,6 +184,7 @@ docs/protocol.md           protocol spec, tiers, acceptance criteria
 docs/threat-model.md       adversary profiles, attacks, limitations
 docs/deployment.md         hardened container (pinned Lean, no network, read-only)
 docs/persistence.md        shared SQLite state for multi-replica deployments
+docs/standards-binding.md  receipt profiles for RFC 9421 / Web Bot Auth, DPoP, SD-JWT VC
 docs/corpus.md             private LLM-authored corpus: specs, read-back gate, rotation
 src/poac/corpus/           specs, authors (stub + Pydantic AI), store, build, poac-corpus CLI
 src/poac/protocol/         strict Pydantic wire contracts
