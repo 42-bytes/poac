@@ -55,6 +55,14 @@ TIERS: dict[CapabilityTier, TierConfig] = {
         rounds=3, families=("proof",), time_budget_ms=40_000,
         difficulty=3, receipt_ttl_s=300,
     ),
+    # full-spectrum: six rounds over six families. The orchestrator prefers
+    # unused families, so every family — including `proof` — appears exactly
+    # once. Budget sits between C3 (15 s) and C4 (40 s): frontier models
+    # that pass C4 solve d3 proofs in 3-8 s (reports/bench-llm-*-C4.json).
+    CapabilityTier.C5: TierConfig(
+        rounds=6, families=("nlu", "code", "logic", "data", "diagram", "proof"),
+        time_budget_ms=30_000, difficulty=3, receipt_ttl_s=300,
+    ),
 }
 
 KERNEL_FAMILIES = frozenset({"proof"})

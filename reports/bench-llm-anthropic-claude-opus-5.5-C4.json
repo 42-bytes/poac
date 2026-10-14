@@ -1,0 +1,29 @@
+{
+  "client": "llm:openrouter:anthropic/claude-opus-5.5",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C4",
+  "transport": "in-process",
+  "sessions": 5,
+  "passes": 5,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.5655,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 7197.42,
+    "p95": 8250.75,
+    "p99": 8358.23
+  },
+  "session_latency_ms": {
+    "p50": 22118.75,
+    "p95": 23721.28,
+    "p99": 23721.28
+  },
+  "mean_session_ms": 22108.23,
+  "wall_clock_s": 110.54,
+  "concurrency": 1
+}

@@ -115,7 +115,7 @@ def main() -> None:
     ap.add_argument("--client", required=True,
                     choices=["reference", "script-random", "script-keyword", "llm"])
     ap.add_argument("--model", help="PydanticAI model string for --client llm")
-    ap.add_argument("--tier", default="C1", choices=["C0", "C1", "C2", "C3", "C4"])
+    ap.add_argument("--tier", default="C1", choices=["C0", "C1", "C2", "C3", "C4", "C5"])
     ap.add_argument("--sessions", type=int, default=20)
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--base-url", help="run against a deployed verifier instead of in-process")

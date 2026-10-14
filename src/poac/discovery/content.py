@@ -84,6 +84,8 @@ Important: {HONEST_CLAIMS}
    a fresh core Lean 4 proposition; submit the proof text that goes after
    ':=' (usually a 'by ...' tactic block, no imports, no '#' commands,
    no 'sorry'). The Lean kernel validates it and audits the axioms.
+   Tier C5 (when listed) is the full-spectrum tier: six rounds, one per
+   family including one Lean proof, 30 s each at C3 difficulty.
 
 ## Endpoints
 

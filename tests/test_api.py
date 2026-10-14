@@ -170,8 +170,9 @@ def test_discovery_surfaces(client):
     assert manifest.status_code == 200
     parsed = CapabilityManifest.model_validate(manifest.json())
     tier_names = {t.tier.value for t in parsed.tiers}
-    # C0-C3 always; C4 only when the host has a Lean toolchain
-    assert {"C0", "C1", "C2", "C3"} <= tier_names <= {"C0", "C1", "C2", "C3", "C4"}
+    # C0-C3 always; C4/C5 only when the host has a Lean toolchain
+    assert {"C0", "C1", "C2", "C3"} <= tier_names <= {"C0", "C1", "C2", "C3", "C4", "C5"}
+    assert ("C4" in tier_names) == ("C5" in tier_names)
     assert "NOT prove" in parsed.honest_claims
 
     # issuer keys published

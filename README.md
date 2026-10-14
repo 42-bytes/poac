@@ -25,7 +25,7 @@ analysis.
 
 ## How it works
 
-1. **Session** — `POST /v1/sessions` with a tier (`C0`–`C4`) and optionally
+1. **Session** — `POST /v1/sessions` with a tier (`C0`–`C5`) and optionally
    your Ed25519 public JWK (for a portable receipt). The response contains
    round 1: one challenge, a nonce, and a time budget.
 2. **Rounds** — solve and `POST /v1/sessions/{id}/rounds/{n}` before the
@@ -58,9 +58,11 @@ no subjective grading.
 
 Tiers scale rounds, difficulty, and budgets: `C0` (1 round, 60 s, sanity
 check) through `C3` (6 rounds, 15 s each, all short-answer families mixed),
-plus the formal tier `C4` (3 Lean proof rounds, 40 s each — offered only
-when the verifier host has the pinned Lean toolchain; install via
-[elan](https://github.com/leanprover/elan), auto-detected at startup).
+plus the formal tier `C4` (3 Lean proof rounds, 40 s each) and the
+full-spectrum tier `C5` (6 rounds, one per family including one Lean
+proof, 30 s each at C3 difficulty). `C4`/`C5` are offered only when the
+verifier host has the pinned Lean toolchain; install via
+[elan](https://github.com/leanprover/elan), auto-detected at startup.
 Submissions to `C4` are token-screened, compiled in a time-limited
 subprocess, and accepted only if an axiom audit shows nothing beyond Lean's
 three standard axioms.

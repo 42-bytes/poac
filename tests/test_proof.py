@@ -16,7 +16,7 @@ from poac.challenges.proof_check import (
     screen_submission,
 )
 from poac.credentials.issuer import ReceiptIssuer
-from poac.protocol.models import CapabilityTier, FailureClass
+from poac.protocol.models import FAMILIES, CapabilityTier, FailureClass
 from poac.reference.solver import solve
 from poac.sessions.orchestrator import Orchestrator, SessionError
 
@@ -168,6 +168,32 @@ def test_c4_unavailable_without_lean():
         orch.create_session(CapabilityTier.C4, None)
 
 
+# --- C5 full-spectrum ----------------------------------------------------------
+
+
+@needs_lean
+@pytest.mark.parametrize("seed_byte", [1, 7, 42])
+def test_full_c5_session_visits_every_family_once(seed_byte):
+    orch = Orchestrator(ReceiptIssuer.generate(), server_secret=bytes([seed_byte]) * 32, lean_bin=LEAN)
+    created = orch.create_session(CapabilityTier.C5, None)
+    rnd = created.round
+    while True:
+        outcome = orch.submit(created.session_id, rnd.round_index, rnd.nonce, solve(rnd.challenge))
+        if getattr(outcome, "status", None) == "next":
+            rnd = outcome.round
+            continue
+        break
+    assert outcome.status == "passed"
+    assert sorted(outcome.families) == sorted(FAMILIES), "each family exactly once"
+    assert "proof" in outcome.families
+
+
+def test_c5_unavailable_without_lean():
+    orch = Orchestrator(ReceiptIssuer.generate(), lean_bin=None)
+    with pytest.raises(SessionError, match="no Lean toolchain"):
+        orch.create_session(CapabilityTier.C5, None)
+
+
 # --- discovery gating ---------------------------------------------------------
 
 
@@ -184,7 +210,7 @@ def test_manifest_hides_c4_without_lean():
 def test_manifest_lists_c4_with_lean():
     client = TestClient(create_app(lean_bin=LEAN))
     tiers = {t["tier"] for t in client.get("/.well-known/agent-capability.json").json()["tiers"]}
-    assert "C4" in tiers
+    assert {"C4", "C5"} <= tiers
 
 
 @needs_lean

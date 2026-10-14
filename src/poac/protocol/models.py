@@ -32,6 +32,9 @@ class CapabilityTier(str, Enum):
     # formal tier: fresh Lean propositions, validated by the Lean kernel.
     # Only offered when the verifier host has a pinned Lean toolchain.
     C4 = "C4"
+    # full-spectrum tier: one round of every family including `proof`,
+    # at C3 difficulty. Also requires the Lean toolchain.
+    C5 = "C5"
 
 
 class IdentityTier(str, Enum):

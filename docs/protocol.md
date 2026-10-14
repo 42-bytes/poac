@@ -38,6 +38,16 @@ PoAC deliberately reports **separate** dimensions instead of one trust score.
 | C2 | broad capability: rotating families, chained | 4 | 20 s | all 5 short-answer families |
 | C3 | frontier: long context, all families, strict | 6 | 15 s | all 5 short-answer families, larger instances |
 | C4 | formal: machine-checkable Lean proofs of fresh propositions | 3 | 40 s | `proof` only; offered only when the verifier host has the pinned Lean toolchain |
+| C5 | full-spectrum: every family once, including a formal proof, at C3 difficulty | 6 | 30 s | all 6 families, each exactly once (family selection prefers unused families); requires the Lean toolchain |
+
+Measured against the private corpus (2026-10, 10 sessions per cell,
+`reports/bench-llm-*-corpus.json`): GPT-5.5, Claude Opus 5.5 and Gemini 4
+pass C1–C3 at 9–10/10; Grok 4.7 times out (p95 solve 38–50 s); GPT-5-mini
+passes C1 30/30 but C2 23/30 (timeouts). At C4, Opus 5.5 and Gemini 4 pass
+5/5, GPT-5.5 0/5 (its proofs do not compile — one shot, no compiler
+feedback). The public-template reference solver passes 0/200 against the
+corpus. Tiers therefore separate not only agents from scripts and humans
+but also frontier models from each other.
 
 \* Design targets. The budgets are inputs to calibration, not constants:
 the evaluation harness (milestone 7) measures real agent latencies and the
