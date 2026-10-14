@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -75,6 +76,7 @@ def run_session(http, prover, tier: str) -> dict:
     rnd = data["round"]
     round_latencies: list[float] = []
     families: list[str] = []
+    client_errors: list[str] = []
     while True:
         fam = rnd["challenge"]["family"]
         families.append(fam)
@@ -82,8 +84,9 @@ def run_session(http, prover, tier: str) -> dict:
         t0 = time.perf_counter()
         try:
             answer = prover.answer(payload)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - recorded, not hidden
             answer = "solver-error"
+            client_errors.append(f"{type(exc).__name__}: {str(exc)[:120]}")
         solve_ms = (time.perf_counter() - t0) * 1000
         resp = http.post(
             f"/v1/sessions/{data['session_id']}/rounds/{rnd['round_index']}",
@@ -103,6 +106,7 @@ def run_session(http, prover, tier: str) -> dict:
             "solve_ms": round_latencies,
             "session_ms": (time.perf_counter() - t_start) * 1000,
             "rounds": len(round_latencies),
+            "client_errors": client_errors,
         }
 
 
@@ -157,6 +161,7 @@ def main() -> None:
     solve_ms = [ms for r in results for ms in r.get("solve_ms", [])]
     session_ms = [r["session_ms"] for r in results if "session_ms" in r]
     failures = [r.get("failure") or r.get("error") for r in results if not r.get("passed")]
+    client_errors = [e for r in results for e in r.get("client_errors", [])]
     lo, hi = wilson_ci(passes, len(results))
 
     summary = {
@@ -173,6 +178,10 @@ def main() -> None:
                 {f: failures.count(f) for f in set(failures)}.items()
             )
         ),
+        # rounds where the prover itself raised (rate limits, provider errors);
+        # these are submitted as wrong answers and inflate wrong_answer
+        "client_error_rounds": len(client_errors),
+        "client_errors_sample": sorted(set(client_errors))[:5],
         "solve_latency_ms": {k: round(v, 2) for k, v in percentiles(solve_ms).items()},
         "session_latency_ms": {k: round(v, 2) for k, v in percentiles(session_ms).items()},
         "mean_session_ms": round(statistics.fmean(session_ms), 2) if session_ms else None,
@@ -187,7 +196,10 @@ def main() -> None:
 
     REPORT_DIR.mkdir(exist_ok=True)
     suffix = "-corpus" if source is not None else ""
-    out = REPORT_DIR / f"bench-{args.client}-{args.tier}{suffix}.json"
+    client_tag = args.client
+    if args.client == "llm":
+        client_tag = "llm-" + re.sub(r"[^A-Za-z0-9.]+", "-", args.model.split(":", 1)[-1])
+    out = REPORT_DIR / f"bench-{client_tag}-{args.tier}{suffix}.json"
     out.write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
     print(f"\nwritten to {out}")

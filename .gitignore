@@ -12,3 +12,6 @@ corpus/*.jsonl
 corpus/*.sqlite
 # local session store
 *.sqlite3
+
+# private corpus — never commit
+corpus/
