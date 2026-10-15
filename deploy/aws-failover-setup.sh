@@ -14,7 +14,7 @@ export AWS_DEFAULT_REGION="$REGION"
 HOST="${POAC_PUBLIC_HOST:-poac.42bytes.eu}"
 PRIMARY_IP="${PRIMARY_IP:?set PRIMARY_IP (current Hetzner node)}"
 INSTANCE="${INSTANCE:-poac-secondary}"
-BUNDLE="${BUNDLE:-nano_3_0}"          # $5: 1 GB / 2 vCPU / 40 GB
+BUNDLE="${BUNDLE:-micro_3_0}"         # $7: 1 GB / 2 vCPU / 40 GB (nano is 512 MB — too small for Lean)
 BLUEPRINT="${BLUEPRINT:-ubuntu_24_04}"
 AZ="${AZ:-${REGION}a}"
 SSH_PUBKEY="${SSH_PUBKEY:-$HOME/.ssh/poac_hetzner.pub}"
@@ -23,13 +23,11 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "account=$ACCOUNT_ID region=$REGION host=$HOST"
 
 # --- Lightsail node ---------------------------------------------------------------
-if ! aws lightsail get-key-pair --key-pair-name poac >/dev/null 2>&1; then
-  aws lightsail import-key-pair --key-pair-name poac --public-key-base64 "$(base64 <"$SSH_PUBKEY" | tr -d '\n')" >/dev/null
-  echo "imported ssh key pair 'poac'" >&2
-fi
 if ! aws lightsail get-instance --instance-name "$INSTANCE" >/dev/null 2>&1; then
+  # Lightsail key import is RSA-only; install our (ed25519) key via user data instead
+  USERDATA="install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh && echo '$(cat "$SSH_PUBKEY")' >> /home/ubuntu/.ssh/authorized_keys && chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys && chmod 600 /home/ubuntu/.ssh/authorized_keys"
   aws lightsail create-instances --instance-names "$INSTANCE" --availability-zone "$AZ" \
-    --blueprint-id "$BLUEPRINT" --bundle-id "$BUNDLE" --key-pair-name poac \
+    --blueprint-id "$BLUEPRINT" --bundle-id "$BUNDLE" --user-data "$USERDATA" \
     --tags key=project,value=poac >/dev/null
   echo "creating Lightsail $INSTANCE ($BUNDLE, $AZ)…" >&2
   until [ "$(aws lightsail get-instance --instance-name "$INSTANCE" --query 'instance.state.name' --output text)" = "running" ]; do sleep 5; done

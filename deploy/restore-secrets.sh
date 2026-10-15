@@ -8,6 +8,8 @@
 # Restoring writes /opt/poac/.env and the data files into the poac-data
 # volume (the verifier is stopped first and started after). Existing files
 # on the host are moved aside with a .bak-<stamp> suffix, never overwritten.
+# If /opt/poac/.env.local exists on the host it is appended to the restored
+# .env (node-specific values that are not part of the bundle).
 # The target host must already have docker + /opt/poac from bootstrap-host.sh.
 set -euo pipefail
 
@@ -36,9 +38,10 @@ echo "restoring $BUNDLE -> $HOST (verifier will restart)" >&2
 REMOTE='set -euo pipefail; cd /opt/poac
 S=$(date -u +%Y%m%dT%H%MZ); W=$(mktemp -d); chmod 700 "$W"; trap "rm -rf $W" EXIT
 tar -C "$W" -xzf -
-docker compose stop verifier >/dev/null
-[ -f .env ] && mv .env ".env.bak-$S"
+[ -f .env ] && { docker compose stop verifier >/dev/null; mv .env ".env.bak-$S"; }   # fresh host: nothing to stop
 install -m 600 "$W/env" .env
+# node-local overrides (DNS-01 creds, POAC_LEAN_MAX_MEMORY_MB, …) survive a restore
+[ -f .env.local ] && { printf "\n# --- from .env.local ---\n" >> .env; cat .env.local >> .env; }
 docker run --rm -i -v poac_poac-data:/data -v "$W/data:/src:ro" alpine sh -ec "
   for f in /src/*; do b=\$(basename \$f); [ -e /data/\$b ] && mv /data/\$b /data/\$b.bak-$S; cp -p \$f /data/\$b; chown 10001:10001 /data/\$b; done
   rm -f /data/corpus.sqlite-wal /data/corpus.sqlite-shm"
