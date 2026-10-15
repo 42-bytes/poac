@@ -189,11 +189,22 @@ def main(argv: list[str] | None = None) -> None:
         default=os.environ.get("POAC_TRIALS_LOG"),
         help="JSONL file for /play human-trial telemetry (default: memory only)",
     )
+    parser.add_argument(
+        "--trust-proxy-headers", action="store_true",
+        default=os.environ.get("POAC_TRUST_PROXY_HEADERS", "0") == "1",
+        help="use X-Forwarded-For as the client address (only when the verifier is reachable "
+             "solely through the reverse proxy; otherwise clients could spoof it)",
+    )
     args = parser.parse_args(argv)
 
     import uvicorn
 
-    uvicorn.run(build_app(args), host=args.host, port=args.port)
+    app = build_app(args)
+    if args.trust_proxy_headers:
+        from poac.api.app import with_proxy_headers
+
+        app = with_proxy_headers(app)
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

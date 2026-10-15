@@ -78,6 +78,16 @@ class _RateLimiter:
             return len(self._window)
 
 
+def with_proxy_headers(app: FastAPI):
+    """Trust X-Forwarded-For from the reverse proxy so `request.client.host`
+    is the visitor, not the proxy. Only for deployments where the verifier is
+    reachable solely through the proxy (the compose stack: Caddy strips any
+    client-supplied forwarding headers before adding its own)."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    return ProxyHeadersMiddleware(app, trusted_hosts="*")
+
+
 def create_app(
     issuer: ReceiptIssuer | None = None,
     orchestrator: Orchestrator | None = None,

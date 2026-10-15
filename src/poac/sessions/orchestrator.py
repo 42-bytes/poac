@@ -114,6 +114,10 @@ class Orchestrator:
     def store(self) -> SessionStore:
         return self._store
 
+    def derived_key(self, label: str) -> bytes:
+        """A purpose-bound key derived from the server secret (HMAC-SHA256)."""
+        return hmac.new(self._secret, label.encode(), hashlib.sha256).digest()
+
     def counters(self) -> dict:
         """Lifetime totals: receipts issued (overall and per tier), sessions started."""
         raw = self._store.counters()

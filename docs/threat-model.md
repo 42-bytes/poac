@@ -105,3 +105,16 @@ The verifier stores per session: session id, tier, family sequence, per-round
 timing, pass/fail, holder key thumbprint (if I1+). No IP retention beyond
 transient rate-limit windows; no content of failed answers is logged beyond
 a hash. Benchmarks export anonymized aggregates only.
+
+The `/play` human-trials log additionally carries two pseudonymous source
+tags per row: `src` = HMAC(key, address) and `net` = HMAC(key, /24 or /64),
+truncated to 64 bits, with the key derived from the server secret. They
+exist so an operator can cluster and purge a spamming source
+(`poac-trials sources`, `poac-trials purge --src|--net`); the address itself
+is never written, the tags are not reversible without the secret, and
+rotating the secret unlinks all earlier rows. The page discloses this.
+
+Rate limits are keyed on the client address as seen through the reverse
+proxy (`POAC_TRUST_PROXY_HEADERS=1`, set by the compose stack where only
+Caddy can reach the verifier). Without it every visitor would share the
+proxy's address — one bucket for everyone.

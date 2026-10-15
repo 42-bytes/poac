@@ -79,7 +79,7 @@
 
     <div class="note">The clock is the server's, it starts the moment a puzzle appears, and it keeps counting if you run over. <strong>Please do submit late answers</strong> — we want to know how long it really takes and whether you'd have been right.</div>
 
-    <p class="mute">What we store: nickname, mode, level, per-round puzzle type, seconds to answer, correct or not. No IP, no account, no cookies. The numbers go into an open evaluation report.</p>
+    <p class="mute">What we store: nickname, mode, level, per-round puzzle type, seconds to answer, correct or not, and a one-way keyed hash of your network address (not the address itself) so we can remove spam. No account, no cookies. The numbers go into an open evaluation report.</p>
     <p><button id="startBtn">Start</button> <span id="startErr" class="bad"></span></p>
   </section>
 

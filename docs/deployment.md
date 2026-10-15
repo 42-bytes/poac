@@ -238,6 +238,20 @@ git push --tags`. Consumers verify provenance with `pypi-attestations`.
 Sessions and verify nonces are in-memory by default (single replica). For
 multiple replicas use the SQLite-backed stores (`docs/persistence.md`).
 
+## Human-trials log
+
+`/play` rows go to `POAC_TRIALS_LOG` (`/data/human-trials.jsonl` in the
+container). Each row carries keyed source tags, never an address. To find
+and remove a spamming source:
+
+```bash
+docker compose exec verifier poac-trials sources            # busiest tags first
+docker compose exec verifier poac-trials purge --src <tag>  # or --net <tag>
+```
+
+The nightly sync copies the log to the secondary, so a purge on the primary
+propagates by the next morning.
+
 ## Challenge corpus
 
 Without `--corpus-db` (`POAC_CORPUS_DB`) every round comes from the public

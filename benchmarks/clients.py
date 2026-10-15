@@ -19,6 +19,7 @@ from __future__ import annotations
 import collections
 import random
 import re
+import threading
 
 from poac.protocol.models import (
     CodeChallenge,
@@ -106,6 +107,25 @@ class KeywordHeuristicClient:
         return str(min(int(n) for n in nums) if nums else 0)
 
 
+def _openrouter_pricing(model: str) -> tuple[float, float] | None:
+    """(prompt, completion) USD per token from the OpenRouter catalog, for
+    ``openrouter:<id>`` model strings. None if unavailable (cost stays None)."""
+    if not model.startswith("openrouter:"):
+        return None
+    try:
+        import httpx
+
+        data = httpx.get("https://openrouter.ai/api/v1/models", timeout=20).json()["data"]
+        wanted = model.split(":", 1)[1]
+        for m in data:
+            if m["id"] == wanted:
+                p = m["pricing"]
+                return float(p["prompt"]), float(p["completion"])
+    except Exception:  # offline, catalog shape changed — benchmark still runs
+        return None
+    return None
+
+
 class LlmAgentClient:
     """Provider-neutral LLM agent using PydanticAI structured output.
 
@@ -134,7 +154,27 @@ class LlmAgentClient:
             ),
         )
 
+        self.model = model
+        self._usage_lock = threading.Lock()
+        self.usage: list[dict] = []  # one entry per LLM call: tokens + cost
+        self.pricing = _openrouter_pricing(model)  # USD per token (prompt, completion) or None
+
     def answer(self, payload: Payload) -> str:
         prompt = payload.model_dump_json()
         result = self._agent.run_sync(prompt)
+        u = result.usage() if callable(result.usage) else result.usage
+        cost = u.cost
+        if cost is None and self.pricing:
+            # list price × tokens; reasoning tokens are billed as completion tokens
+            cost = (u.input_tokens or 0) * self.pricing[0] + (u.output_tokens or 0) * self.pricing[1]
+        with self._usage_lock:
+            self.usage.append({
+                "input_tokens": u.input_tokens, "output_tokens": u.output_tokens, "cost_usd": cost,
+            })
         return result.output.answer
+
+    def drain_usage(self) -> list[dict]:
+        """Return and clear usage recorded since the last call (per-session bookkeeping)."""
+        with self._usage_lock:
+            out, self.usage = self.usage, []
+        return out

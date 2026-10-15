@@ -31,6 +31,7 @@ from poac.protocol.models import (
 )
 from poac.sessions.orchestrator import Orchestrator, SessionError, VerifierError
 from poac.trials.log import TrialLog
+from poac.trials.source import source_tags
 
 Mode = Literal["unaided", "relay"]
 MAX_PENDING = 10_000
@@ -52,6 +53,8 @@ class TrialSubmit(StrictModel):
 @dataclass
 class _Pending:
     nickname: str
+    src: str
+    net: str
     mode: str
     tier: str
     round_index: int
@@ -68,6 +71,7 @@ def build_trials_router(
     clock: Callable[[], float] | None = None,
 ) -> APIRouter:
     clock = clock or orchestrator.clock
+    source_key = orchestrator.derived_key("trials-source")
     router = APIRouter()
     pending: "OrderedDict[str, _Pending]" = OrderedDict()
     lock = threading.Lock()
@@ -87,9 +91,10 @@ def build_trials_router(
         except SessionError as exc:
             raise HTTPException(503, exc.message) from exc
         now = clock()
+        src, net = source_tags(source_key, client)  # keyed hashes; the IP itself is not kept
         with lock:
             pending[created.session_id] = _Pending(
-                nickname=body.nickname.strip() or "anon", mode=body.mode,
+                nickname=body.nickname.strip() or "anon", src=src, net=net, mode=body.mode,
                 tier=body.tier.value, round_index=1,
                 family=created.round.challenge.family, issued_at=now, started_at=now)
             while len(pending) > MAX_PENDING:
@@ -130,7 +135,7 @@ def build_trials_router(
                     untimed = None
         log.append({
             "event": "round", "session_id": body.session_id, "nickname": p.nickname,
-            "mode": p.mode, "tier": p.tier, "round_index": p.round_index, "family": p.family,
+            "src": p.src, "net": p.net, "mode": p.mode, "tier": p.tier, "round_index": p.round_index, "family": p.family,
             "answer_ms": round((arrival - p.issued_at) * 1000, 1), "budget_ms": budget_ms,
             "outcome": outcome, "correct_if_untimed": untimed,
             "answer_chars": len(body.answer),
@@ -145,7 +150,7 @@ def build_trials_router(
                 pending.pop(body.session_id, None)
                 log.append({
                     "event": "session", "session_id": body.session_id, "nickname": p.nickname,
-                    "mode": p.mode, "tier": p.tier,
+                    "src": p.src, "net": p.net, "mode": p.mode, "tier": p.tier,
                     "status": "passed" if isinstance(out, SessionPassedResponse) else "failed",
                     "failure": None if isinstance(out, SessionPassedResponse) else out.failure.value,
                     "rounds_correct": p.rounds_done + (1 if outcome == "correct" else 0),

@@ -33,6 +33,30 @@ def _pct(values: list[float], q: float) -> float | None:
     return round(s[lo] + (s[hi] - s[lo]) * (k - lo), 1)
 
 
+def purge_source(path: str | Path, src: str | None = None, net: str | None = None) -> int:
+    """Drop every row tagged with this `src` and/or `net`; return how many.
+
+    Rewrites the file atomically. The operator runs this after spotting a
+    spamming source in the stats (see `poac-trials purge`).
+    """
+    path = Path(path)
+    if not path.exists() or (src is None and net is None):
+        return 0
+    kept, removed = [], 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        row = json.loads(line)
+        if (src is not None and row.get("src") == src) or (net is not None and row.get("net") == net):
+            removed += 1
+        else:
+            kept.append(line)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("".join(l + "\n" for l in kept), encoding="utf-8")
+    tmp.replace(path)
+    return removed
+
+
 class TrialLog:
     """One JSON object per line. ``path=None`` keeps events in memory only
     (tests, throwaway instances)."""

@@ -63,6 +63,16 @@ def run_session(http, prover, tier: str) -> dict:
     def on_round(_rnd, _answer, dt: float) -> None:
         round_latencies.append(dt * 1000)
 
+    def usage() -> dict:
+        # per-session token/cost attribution (exact at concurrency 1)
+        calls = prover.drain_usage() if hasattr(prover, "drain_usage") else []
+        costs = [c["cost_usd"] for c in calls if c.get("cost_usd") is not None]
+        return {
+            "input_tokens": sum(c["input_tokens"] or 0 for c in calls),
+            "output_tokens": sum(c["output_tokens"] or 0 for c in calls),
+            "cost_usd": sum(costs) if costs else None,
+        }
+
     pc = PoacClient(base_url="", http=http)
     try:
         receipt = pc.earn(tier, solver, bind_key=False, on_round=on_round)
@@ -70,15 +80,15 @@ def run_session(http, prover, tier: str) -> dict:
         return {
             "passed": False, "failure": sf.failure.value, "families": sf.families,
             "solve_ms": round_latencies, "session_ms": (time.perf_counter() - t_start) * 1000,
-            "rounds": len(round_latencies), "client_errors": client_errors,
+            "rounds": len(round_latencies), "client_errors": client_errors, "usage": usage(),
         }
     except PoacError as pe:
         return {"passed": False, "error": str(pe)[:80], "rounds": len(round_latencies),
-                "client_errors": client_errors}
+                "client_errors": client_errors, "usage": usage()}
     return {
         "passed": True, "failure": None, "families": receipt.families,
         "solve_ms": round_latencies, "session_ms": (time.perf_counter() - t_start) * 1000,
-        "rounds": len(round_latencies), "client_errors": client_errors,
+        "rounds": len(round_latencies), "client_errors": client_errors, "usage": usage(),
     }
 
 
@@ -160,6 +170,21 @@ def main() -> None:
         "wall_clock_s": round(wall_s, 2),
         "concurrency": args.concurrency,
     }
+    usages = [r["usage"] for r in results if r.get("usage")]
+    costs = [u["cost_usd"] for u in usages if u.get("cost_usd") is not None]
+    if usages and any(u["input_tokens"] or u["output_tokens"] for u in usages):
+        total_cost = sum(costs) if costs else None
+        summary["usage"] = {
+            "input_tokens": sum(u["input_tokens"] for u in usages),
+            "output_tokens": sum(u["output_tokens"] for u in usages),
+            "sessions_with_cost": len(costs),
+            "cost_usd_total": round(total_cost, 6) if total_cost is not None else None,
+            "cost_usd_per_session": round(total_cost / len(usages), 6) if total_cost is not None else None,
+            # what one receipt costs the agent operator, failed attempts included
+            "cost_usd_per_receipt": (
+                round(total_cost / passes, 6) if total_cost is not None and passes else None
+            ),
+        }
     if source is not None:
         summary["corpus"] = {
             "db": args.corpus_db, "rounds_served": source.served,
