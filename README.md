@@ -113,7 +113,7 @@ three standard axioms.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 poac-verifier --port 8000            # or: uvicorn --factory poac.api.app:create_app
-pytest                               # 337 tests; Lean-dependent ones skip without a toolchain
+pytest                               # 344 tests; Lean-dependent ones skip without a toolchain
 ```
 
 One replica needs no configuration. For several replicas share a SQLite
@@ -152,10 +152,21 @@ python -m benchmarks.run_benchmark --client reference --tier C1 --sessions 20 --
 
 Results land in `reports/bench-*.json`. Current findings (details in
 [`reports/prototype-evaluation.md`](reports/prototype-evaluation.md)):
-blind scripts pass 0/500 short-answer sessions and 0/100 formal sessions
-(blind tactic spam cannot close induction goals), the oracle passes 100%
-with ~50 ms of server time per C2 session (~740 ms per C4 session including
-kernel checks), and live LLM/human trials are pending.
+against the private corpus, blind and source-aware scripts pass 0/800,
+frontier agents pass C1–C3 at 9–10/10 (criterion 1 met), slower models
+time out rather than err, and human trials are running.
+
+### Human trials (`/play`)
+
+The verifier serves a browser game at `/play` for measuring the human and
+human+chatbot ("relay") floor. It plays real sessions through the same
+orchestrator, so deadlines and corpus rotation are identical to what
+agents face; the only difference is telemetry. Every submission — right,
+wrong, or late — is logged with its server-measured time-to-answer and
+whether it would have been correct without the clock
+(`--trials-log` / `POAC_TRIALS_LOG`, JSONL, no IPs). `/play/api/stats`
+aggregates by family and mode and is what the page's "everyone so far"
+panel shows. Try it: [poac.42bytes.eu/play](https://poac.42bytes.eu/play).
 
 ## Security review
 
@@ -196,6 +207,7 @@ src/poac/discovery/        llms.txt, human notice, manifest, agent card, skill.m
 src/poac/client.py         PoacClient: earn / present / verify + HolderKey
 src/poac/rp.py             PoacGate: FastAPI dependency for relying parties
 src/poac/mcp_server.py     poac-mcp: MCP tools for agents that cannot run code
+src/poac/trials/           /play human-trial game: page, timed proxy, JSONL log + stats
 src/poac/reference/        payload-only oracle solver (evaluation only)
 benchmarks/                prover clients + harness + stats
 tests/                     contract, property, session, credential, kernel, red-team suites

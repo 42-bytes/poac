@@ -35,6 +35,7 @@ def build_app(args: argparse.Namespace):
     from poac.api.app import create_app
     from poac.credentials.issuer import ReceiptIssuer
     from poac.sessions.orchestrator import Orchestrator
+    from poac.trials.log import TrialLog
 
     issuer = None
     if args.issuer_key_file:
@@ -92,6 +93,7 @@ def build_app(args: argparse.Namespace):
         orchestrator=orchestrator,
         base_url=args.base_url,
         nonce_store=nonce_store,
+        trial_log=TrialLog(args.trials_log),
     )
 
 
@@ -123,6 +125,11 @@ def main(argv: list[str] | None = None) -> None:
         "--corpus-db",
         default=os.environ.get("POAC_CORPUS_DB"),
         help="private challenge corpus (SQLite); templates are the fallback",
+    )
+    parser.add_argument(
+        "--trials-log",
+        default=os.environ.get("POAC_TRIALS_LOG"),
+        help="JSONL file for /play human-trial telemetry (default: memory only)",
     )
     args = parser.parse_args(argv)
 

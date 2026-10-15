@@ -89,6 +89,21 @@ class Orchestrator:
     def store(self) -> SessionStore:
         return self._store
 
+    @property
+    def clock(self) -> Callable[[], float]:
+        return self._clock
+
+    def peek_expected_answer(self, session_id: str) -> str | None:
+        """Research hook for the human-trial game: the current round's
+        expected answer, so a late or wrong submission can still be scored
+        "would have been right". Never exposed over the API; None for
+        kernel-validated rounds and unknown sessions."""
+        session = self._store.get(session_id)
+        state = session.round_state if session else None
+        if state is None or isinstance(state.payload, ProofChallenge):
+            return None
+        return state.expected_answer
+
     # --- internals ---------------------------------------------------------
 
     def _round_seed(self, session: Session, round_index: int) -> bytes:

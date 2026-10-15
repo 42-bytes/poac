@@ -31,6 +31,7 @@ services:
       POAC_SERVER_SECRET: ${POAC_SERVER_SECRET:?set POAC_SERVER_SECRET in .env}
       POAC_LEAN_MAX_MEMORY_MB: ${POAC_LEAN_MAX_MEMORY_MB:-1024}
       POAC_CORPUS_DB: ${POAC_CORPUS_DB:-}
+      POAC_TRIALS_LOG: ${POAC_TRIALS_LOG:-/data/human-trials.jsonl}
     volumes:
       - poac-data:/data
     networks: [internal]

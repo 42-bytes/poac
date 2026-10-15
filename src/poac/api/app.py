@@ -34,6 +34,8 @@ from poac.protocol.models import (
     VerifyNonceResponse,
 )
 from poac.sessions.orchestrator import Orchestrator, SessionError, VerifierError
+from poac.trials.api import build_trials_router
+from poac.trials.log import TrialLog
 
 MAX_BODY_BYTES = 64 * 1024
 SESSION_RATE_PER_MINUTE = 30
@@ -83,6 +85,8 @@ def create_app(
     session_rate_per_minute: int = SESSION_RATE_PER_MINUTE,
     lean_bin: str | None | object = _AUTODETECT,
     nonce_store: NonceStore | None = None,
+    trial_log: TrialLog | None = None,
+    trial_clock=None,
 ) -> FastAPI:
     issuer = issuer or ReceiptIssuer.generate(issuer_url=base_url)
     if lean_bin is _AUTODETECT:
@@ -201,5 +205,10 @@ def create_app(
     @app.get(SKILL_PATH, response_class=PlainTextResponse, include_in_schema=False)
     def skill_md():
         return SKILL_MD.replace("{verifier_url}", issuer.issuer_url)
+
+    # --- human-trial game (/play) -------------------------------------------
+    app.state.trial_log = trial_log or TrialLog(None)
+    app.include_router(build_trials_router(
+        orchestrator, app.state.trial_log, allow=limiter.allow, clock=trial_clock))
 
     return app

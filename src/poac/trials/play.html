@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beat the agents? — PoAC human trial</title>
+<style>
+  :root { --ink:#1a1a1a; --mute:#6b6b6b; --line:#e6e6e6; --accent:#b45309; --ok:#15803d; --bad:#b91c1c; --bg:#fcfcfa; }
+  * { box-sizing: border-box; }
+  body { font: 17px/1.55 system-ui, -apple-system, Segoe UI, sans-serif; color: var(--ink); background: var(--bg); margin: 0; }
+  main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.2rem 5rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .4rem; letter-spacing: -.01em; }
+  h2 { font-size: 1.2rem; margin: 1.8rem 0 .6rem; }
+  p { margin: .5rem 0; }
+  .mute { color: var(--mute); font-size: .92rem; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem 1.3rem; margin: 1rem 0; }
+  label { display: block; margin: .8rem 0 .3rem; font-weight: 600; font-size: .95rem; }
+  input[type=text], select, textarea { font: inherit; width: 100%; padding: .55rem .7rem; border: 1px solid #cfcfcf; border-radius: 7px; background: #fff; }
+  textarea { min-height: 7rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92rem; }
+  button { font: inherit; font-weight: 600; padding: .6rem 1.1rem; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: var(--ink); }
+  button:disabled { opacity: .45; cursor: default; }
+  .radio { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .radio label { flex: 1 1 14rem; margin: 0; font-weight: 500; border: 1px solid var(--line); border-radius: 8px; padding: .7rem .8rem; cursor: pointer; }
+  .radio input { margin-right: .5rem; }
+  .radio label.on { border-color: var(--ink); background: #f5f5f2; }
+  .hdr { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .fam { font-family: ui-monospace, Menlo, monospace; font-size: .85rem; background: #f2f2f2; padding: .15em .5em; border-radius: 5px; }
+  .clock { font-variant-numeric: tabular-nums; font-size: 1.6rem; font-weight: 700; }
+  .clock.late { color: var(--bad); }
+  .bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin: .6rem 0 1rem; }
+  .bar > div { height: 100%; background: var(--ink); width: 100%; transition: width .25s linear; }
+  .bar.late > div { background: var(--bad); }
+  .challenge { white-space: pre-wrap; }
+  pre { background: #f6f6f4; padding: .9rem 1rem; border-radius: 8px; overflow: auto; font-size: .9rem; line-height: 1.45; white-space: pre-wrap; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: .5rem 0; }
+  th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th { font-weight: 600; color: var(--mute); font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+  .q { font-weight: 600; margin-top: 1rem; }
+  .ok { color: var(--ok); font-weight: 700; } .bad { color: var(--bad); font-weight: 700; }
+  .svgwrap svg { max-width: 100%; height: auto; display: block; margin: .5rem auto; }
+  .note { border-left: 4px solid var(--accent); background: #fff7ed; padding: .7rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; font-size: .95rem; }
+  .big { font-size: 1.5rem; font-weight: 700; margin: .4rem 0; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Beat the agents?</h1>
+  <p class="mute">PoAC is a reverse CAPTCHA: puzzles AI agents solve in a few seconds. We need to know how fast <em>people</em> are — with and without a chatbot helping. Play a few rounds; your times are recorded anonymously.</p>
+
+  <section id="intro" class="card">
+    <label for="nick">Nickname (optional)</label>
+    <input id="nick" type="text" maxlength="32" placeholder="anon" autocomplete="off">
+
+    <label>How will you play?</label>
+    <div class="radio" id="modes">
+      <label class="on"><input type="radio" name="mode" value="unaided" checked><strong>Unaided</strong><br><span class="mute">Just you, reading and typing.</span></label>
+      <label><input type="radio" name="mode" value="relay"><strong>Relay</strong><br><span class="mute">Copy the puzzle into ChatGPT/Claude/etc. and paste the answer back. There's a copy button.</span></label>
+    </div>
+
+    <label for="tier">Level</label>
+    <select id="tier">
+      <option value="C1" selected>C1 — 3 rounds, 20 s each (reading, data, logic)</option>
+      <option value="C2">C2 — 4 rounds, 20 s each (+ code, diagram)</option>
+      <option value="C3">C3 — 6 rounds, 15 s each, bigger puzzles</option>
+      <option value="C0">C0 — 1 round, 60 s (warm-up)</option>
+    </select>
+
+    <div class="note">The clock is the server's, it starts the moment a puzzle appears, and it keeps counting if you run over. <strong>Please do submit late answers</strong> — we want to know how long it really takes and whether you'd have been right.</div>
+
+    <p class="mute">What we store: nickname, mode, level, per-round puzzle type, seconds to answer, correct or not. No IP, no account, no cookies. The numbers go into an open evaluation report.</p>
+    <p><button id="startBtn">Start</button> <span id="startErr" class="bad"></span></p>
+  </section>
+
+  <section id="round" class="card hidden">
+    <div class="hdr">
+      <div><strong>Round <span id="rIdx"></span>/<span id="rTot"></span></strong> &nbsp; <span class="fam" id="rFam"></span></div>
+      <div class="clock" id="clock">0.0 s</div>
+    </div>
+    <div class="bar" id="bar"><div></div></div>
+    <div id="challenge"></div>
+    <label for="answer">Your answer <span class="mute" id="fmt"></span></label>
+    <input id="answer" type="text" autocomplete="off" spellcheck="false">
+    <textarea id="answerLong" class="hidden" spellcheck="false"></textarea>
+    <p>
+      <button id="submitBtn">Submit</button>
+      <button id="copyBtn" class="ghost" title="Copy the puzzle as plain text (for relay mode)">Copy puzzle</button>
+      <span id="lateMsg" class="bad hidden">Over time — submit anyway, it still counts for the study.</span>
+    </p>
+  </section>
+
+  <section id="result" class="card hidden">
+    <div class="big" id="verdict"></div>
+    <p id="verdictSub" class="mute"></p>
+    <table id="roundsTbl"><thead><tr><th>Round</th><th>Family</th><th>Your time</th><th>Budget</th><th>Result</th></tr></thead><tbody></tbody></table>
+    <div id="agentsCmp" class="note"></div>
+    <p><button id="againBtn">Play again</button> <button id="changeBtn" class="ghost">Change level / mode</button></p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">Everyone so far</h2>
+    <div id="stats" class="mute">loading…</div>
+  </section>
+
+  <p class="mute">This is the <a href="/">PoAC verifier</a>. Agents read <a href="/llms.txt">/llms.txt</a>; the protocol and measured results are in the repo.</p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const fmtS = (ms) => (ms / 1000).toFixed(1) + ' s';
+  const pct = (x) => x == null ? '–' : Math.round(x * 100) + '%';
+
+  // DOM helpers: everything is built with createElement/textContent, never markup strings.
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'class') el.className = v; else el.setAttribute(k, v);
+    }
+    for (const c of children.flat()) {
+      if (c == null) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function replace(el, ...children) { clear(el); el.append(...children.flat().filter(c => c != null)); }
+
+  // The diagram SVG comes from the verifier; parse it as SVG and drop anything executable anyway.
+  function safeSvg(text) {
+    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const root = doc.documentElement;
+    if (!root || root.nodeName.toLowerCase() !== 'svg') return h('pre', null, text);
+    for (const el of [...root.querySelectorAll('*'), root]) {
+      const name = el.nodeName.toLowerCase();
+      if (name === 'script' || name === 'foreignobject') { el.remove(); continue; }
+      for (const a of [...el.attributes]) {
+        if (/^on/i.test(a.name) || /^(href|xlink:href)$/i.test(a.name) && /^\s*javascript:/i.test(a.value)) el.removeAttribute(a.name);
+      }
+    }
+    return document.importNode(root, true);
+  }
+
+  let state = null;
+
+  $('modes').addEventListener('change', () => {
+    for (const l of $('modes').querySelectorAll('label')) l.classList.toggle('on', l.querySelector('input').checked);
+  });
+
+  function show(id) { for (const s of ['intro', 'round', 'result']) $(s).classList.toggle('hidden', s !== id); }
+
+  function renderChallenge(ch) {
+    let nodes = [], longAnswer = false, copyText = '';
+    switch (ch.family) {
+      case 'nlu':
+        nodes = [h('div', { class: 'challenge' }, ch.narrative), h('p', { class: 'q' }, ch.question)];
+        copyText = `${ch.narrative}\n\nQuestion: ${ch.question}\nAnswer with the name only.`;
+        break;
+      case 'logic':
+        nodes = [h('div', { class: 'challenge' }, ch.statement), h('p', { class: 'q' }, ch.question)];
+        copyText = `${ch.statement}\n\nQuestion: ${ch.question}\nAnswer with the name only.`;
+        break;
+      case 'data': {
+        const cols = [...new Set(ch.rows.flatMap(r => Object.keys(r)))];
+        const table = h('table', null,
+          h('thead', null, h('tr', null, cols.map(c => h('th', null, c)))),
+          h('tbody', null, ch.rows.map(r => h('tr', null, cols.map(c => h('td', null, r[c] ?? ''))))));
+        nodes = [table, h('p', { class: 'q' }, ch.instruction)];
+        copyText = cols.join('\t') + '\n' + ch.rows.map(r => cols.map(c => r[c] ?? '').join('\t')).join('\n') +
+          `\n\n${ch.instruction}\nAnswer with the number only.`;
+        break;
+      }
+      case 'code':
+        nodes = [h('pre', null, ch.source), h('p', { class: 'q' }, ch.question)];
+        copyText = '```python\n' + ch.source + '\n```\n\n' + ch.question + '\nAnswer with the exact output only.';
+        break;
+      case 'diagram':
+        nodes = [h('div', { class: 'svgwrap' }, safeSvg(ch.svg)), h('p', { class: 'q' }, ch.question)];
+        copyText = `${ch.svg}\n\n${ch.question}\nAnswer with the number only.`;
+        break;
+      case 'proof':
+        nodes = [h('pre', null, `${ch.preamble}\n\ntheorem poac_target : ${ch.proposition} := ?`), h('p', { class: 'q' }, ch.instructions)];
+        copyText = `${ch.preamble}\n\ntheorem poac_target : ${ch.proposition} := ?\n\n${ch.instructions}`;
+        longAnswer = true;
+        break;
+      default:
+        nodes = [h('pre', null, JSON.stringify(ch, null, 2))];
+        copyText = JSON.stringify(ch, null, 2);
+    }
+    replace($('challenge'), nodes);
+    $('answer').classList.toggle('hidden', longAnswer);
+    $('answerLong').classList.toggle('hidden', !longAnswer);
+    $('answer').value = ''; $('answerLong').value = '';
+    state.copyText = copyText;
+    state.longAnswer = longAnswer;
+  }
+
+  function startClock(budgetMs) {
+    stopClock();
+    state.t0 = performance.now();
+    const tick = () => {
+      const ms = performance.now() - state.t0;
+      const late = ms > budgetMs;
+      $('clock').textContent = fmtS(ms) + ' / ' + fmtS(budgetMs);
+      $('clock').classList.toggle('late', late);
+      $('bar').classList.toggle('late', late);
+      $('bar').firstElementChild.style.width = Math.max(0, 100 - 100 * ms / budgetMs) + '%';
+      $('lateMsg').classList.toggle('hidden', !late);
+    };
+    tick();
+    state.timer = setInterval(tick, 100);
+  }
+  function stopClock() { if (state && state.timer) { clearInterval(state.timer); state.timer = null; } }
+
+  function showRound(rnd) {
+    state.current = rnd;
+    $('rIdx').textContent = rnd.round_index; $('rTot').textContent = rnd.rounds_total;
+    $('rFam').textContent = rnd.challenge.family;
+    $('fmt').textContent = rnd.answer_format ? '— ' + rnd.answer_format : '';
+    renderChallenge(rnd.challenge);
+    show('round');
+    startClock(rnd.time_budget_ms);
+    (state.longAnswer ? $('answerLong') : $('answer')).focus();
+  }
+
+  async function postJson(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { let d = r.statusText; try { d = (await r.json()).detail || d; } catch {} throw new Error(typeof d === 'string' ? d : JSON.stringify(d)); }
+    return r.json();
+  }
+
+  $('startBtn').addEventListener('click', async () => {
+    $('startErr').textContent = '';
+    $('startBtn').disabled = true;
+    const body = {
+      tier: $('tier').value,
+      mode: document.querySelector('input[name=mode]:checked').value,
+      nickname: $('nick').value.trim() || 'anon',
+    };
+    try {
+      const s = await postJson('/play/api/start', body);
+      state = { sessionId: s.session_id, tier: body.tier, mode: body.mode, total: s.round.rounds_total, rounds: [], timer: null };
+      showRound(s.round);
+    } catch (e) {
+      $('startErr').textContent = 'Could not start: ' + e.message;
+    } finally { $('startBtn').disabled = false; }
+  });
+
+  async function submit() {
+    if (!state || !state.current) return;
+    const answer = (state.longAnswer ? $('answerLong') : $('answer')).value;
+    if (!answer.trim()) return;
+    const ms = performance.now() - state.t0;
+    stopClock();
+    $('submitBtn').disabled = true;
+    const rnd = state.current;
+    try {
+      const out = await postJson('/play/api/submit', { session_id: state.sessionId, round_index: rnd.round_index, nonce: rnd.nonce, answer });
+      const outcome = out.status === 'failed' ? out.failure : 'correct';
+      state.rounds.push({ family: rnd.challenge.family, ms, budget: rnd.time_budget_ms, outcome });
+      if (out.status === 'next') showRound(out.round); else finish(out);
+    } catch (e) {
+      alert('Submit failed: ' + e.message);
+      show('intro');
+    } finally { $('submitBtn').disabled = false; }
+  }
+  $('submitBtn').addEventListener('click', submit);
+  $('answer').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  $('answerLong').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
+
+  $('copyBtn').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(state.copyText); $('copyBtn').textContent = 'Copied'; setTimeout(() => { $('copyBtn').textContent = 'Copy puzzle'; }, 1200); }
+    catch { prompt('Copy this:', state.copyText); }
+  });
+
+  const LABEL = { timeout: 'too slow', wrong_answer: 'wrong answer', expired: 'session expired', protocol_violation: 'protocol error' };
+  let agents = {};
+  const agentsText = () => Object.entries(agents).map(([k, v]) => `${k} ${fmtS(v)}`).join(', ');
+
+  function finish(out) {
+    state.current = null;
+    const passed = out.status === 'passed';
+    replace($('verdict'), passed
+      ? [h('span', { class: 'ok' }, `You passed ${state.tier}.`), ' You just did what the agents do.']
+      : [h('span', { class: 'bad' }, `Stopped at round ${state.rounds.length}/${state.total}`), ` — ${LABEL[out.failure] || out.failure}.`]);
+    $('verdictSub').textContent = passed
+      ? 'A real receipt was issued for this session (unbound, so it cannot be presented anywhere). Thank you — that is a data point we needed.'
+      : (out.failure === 'timeout'
+        ? 'Late answers are the most useful data we get: they tell us the real human floor per puzzle type.'
+        : 'Thanks — a wrong answer under time pressure is exactly what the design predicts.');
+    replace($('roundsTbl').querySelector('tbody'), state.rounds.map((r, i) =>
+      h('tr', null, h('td', null, i + 1), h('td', null, h('span', { class: 'fam' }, r.family)), h('td', null, fmtS(r.ms)),
+        h('td', null, fmtS(r.budget)),
+        h('td', { class: r.outcome === 'correct' ? 'ok' : 'bad' }, r.outcome === 'correct' ? 'correct' : (LABEL[r.outcome] || r.outcome)))));
+    const mine = state.rounds.reduce((a, r) => a + r.ms, 0) / state.rounds.length;
+    replace($('agentsCmp'), 'Your average: ', h('strong', null, fmtS(mine)), ' per puzzle. Frontier agents on the same puzzles: ' + agentsText() + '.');
+    show('result');
+    loadStats();
+  }
+  $('againBtn').addEventListener('click', () => $('startBtn').click());
+  $('changeBtn').addEventListener('click', () => show('intro'));
+
+  function statsTable(title, group) {
+    const head = h('tr', null, ['', 'rounds', 'median time', 'in time', 'right (untimed)', 'right in time'].map(t => h('th', null, t)));
+    const rows = Object.entries(group).map(([k, v]) => h('tr', null,
+      h('td', null, k), h('td', null, v.n), h('td', null, v.answer_ms_p50 == null ? '–' : fmtS(v.answer_ms_p50)),
+      h('td', null, pct(v.within_budget_rate)), h('td', null, pct(v.correct_if_untimed_rate)), h('td', null, pct(v.correct_in_time_rate))));
+    return [h('p', null, h('strong', null, title)), h('table', null, h('thead', null, head), h('tbody', null, rows))];
+  }
+
+  async function loadStats() {
+    try {
+      const s = await (await fetch('/play/api/stats')).json();
+      agents = (s.agents || {}).solve_ms_p50_at_C1 || {};
+      if (!s.rounds) { $('stats').textContent = 'No one has played yet. Be the first.'; return; }
+      replace($('stats'),
+        h('p', null, `${s.sessions} sessions, ${s.sessions_passed} passed, ${s.rounds} rounds answered.`),
+        statsTable('By puzzle type', s.by_family), statsTable('By mode', s.by_mode),
+        h('p', { class: 'mute' }, `Agents' median per puzzle at C1: ${agentsText()}.`));
+    } catch { $('stats').textContent = 'stats unavailable'; }
+  }
+  loadStats();
+})();
+</script>
+</body>
+</html>

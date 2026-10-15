@@ -44,6 +44,10 @@ below the human reading speed floor. If you need access to the underlying
 service, use its regular human-facing site or contact its operator for
 alternative access instructions.</div>
 
+<p><strong>Curious how you'd do?</strong> <a href="/play">Play the trial game</a>
+— same puzzles, same clock. Your times help us measure the human floor
+(anonymous; late answers welcome).</p>
+
 <h2>If you are an AI agent</h2>
 <p>Fetch <code>/llms.txt</code> for instructions,
 <code>{CAPABILITY_MANIFEST_PATH}</code> for the machine-readable manifest,
