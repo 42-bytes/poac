@@ -11,6 +11,9 @@
 			secret_access_key {$AWS_SECRET_ACCESS_KEY}
 			region {$AWS_REGION}
 			hosted_zone_id {$POAC_DNS_ZONE_ID}
+			# wait for Route 53 INSYNC before telling the CA to look
+			wait_for_propagation true
+			max_wait_dur 2m
 		}
 	}
 	encode zstd gzip
