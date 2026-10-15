@@ -104,10 +104,11 @@ def test_previous_keys_stay_in_jwks_for_the_switchover():
     assert len(kids) == 2 and kids[0] == new_issuer.signer.kid  # current first
     assert _present_ok(new_issuer, old_receipt, hk) == (True, None)   # in-flight receipts survive
     assert _present_ok(new_issuer, _issue(new_issuer, hj), hk) == (True, None)
-    # previous keys are published public-only even if a private JWK was passed
-    new_issuer2 = ReceiptIssuer(KmsSigner("arn:x", client=FakeKms()), issuer_url="u",
-                                previous_keys=[old.as_dict(private=True)])
-    assert all("d" not in k for k in new_issuer2.jwks()["keys"])
+    # a private JWK offered as a previous key is a configuration error, not something to strip quietly
+    with pytest.raises(ValueError):
+        ReceiptIssuer(KmsSigner("arn:x", client=FakeKms()), issuer_url="u",
+                      previous_keys=[old.as_dict(private=True)])
+    assert all("d" not in k for k in new_issuer.jwks()["keys"])
 
 
 def test_signer_outage_is_503_for_a_passed_session():

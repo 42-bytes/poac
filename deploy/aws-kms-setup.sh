@@ -34,8 +34,15 @@ ensure_key() {  # alias keyspec description -> key id
   echo "$id"
 }
 
-ED_ID=$(ensure_key poac-issuer-ed25519 ECC_NIST_EDWARDS25519 "PoAC receipt issuer (Ed25519, JWS alg EdDSA)")
-PQ_ID=$(ensure_key poac-issuer-mldsa65 ML_DSA_65 "PoAC receipt issuer (ML-DSA-65, JWS alg ML-DSA-65, RFC 9964)")
+# Rotation: run again with ED_ALIAS=poac-issuer-ed25519-<stamp> (and/or
+# PQ_ALIAS=...) to mint a replacement key; the signer policy below covers
+# every key tagged project=poac, so no policy edit is needed. Then on the
+# server: `poac-keys retire-kms --key <old arn>`, point .env at the new ARN,
+# restart; schedule deletion of the old key after its retire_at.
+ED_ALIAS="${ED_ALIAS:-poac-issuer-ed25519}"
+PQ_ALIAS="${PQ_ALIAS:-poac-issuer-mldsa65}"
+ED_ID=$(ensure_key "$ED_ALIAS" ECC_NIST_EDWARDS25519 "PoAC receipt issuer (Ed25519, JWS alg Ed25519)")
+PQ_ID=$(ensure_key "$PQ_ALIAS" ML_DSA_65 "PoAC receipt issuer (ML-DSA-65, JWS alg ML-DSA-65, RFC 9964)")
 ED_ARN="arn:aws:kms:$REGION:$ACCOUNT_ID:key/$ED_ID"
 PQ_ARN="arn:aws:kms:$REGION:$ACCOUNT_ID:key/$PQ_ID"
 
@@ -51,14 +58,15 @@ POLICY_DOC=$(cat <<EOF
     "Sid": "SignReceipts",
     "Effect": "Allow",
     "Action": ["kms:Sign", "kms:GetPublicKey", "kms:DescribeKey"],
-    "Resource": ["$ED_ARN", "$PQ_ARN"]
+    "Resource": "arn:aws:kms:$REGION:$ACCOUNT_ID:key/*",
+    "Condition": {"StringEquals": {"aws:ResourceTag/project": "poac"}}
   }]
 }
 EOF
 )
 aws iam put-user-policy --user-name "$SIGNER_USER" --policy-name poac-sign-only \
   --policy-document "$POLICY_DOC"
-echo "attached inline policy poac-sign-only (Sign/GetPublicKey/DescribeKey on 2 keys)" >&2
+echo "attached inline policy poac-sign-only (Sign/GetPublicKey/DescribeKey on keys tagged project=poac)" >&2
 
 # --- key policy: root admin + signer can sign; nobody can ScheduleKeyDeletion
 #     without the admin path. (Default key policy already grants the account

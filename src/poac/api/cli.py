@@ -37,8 +37,12 @@ def build_app(args: argparse.Namespace):
     from poac.sessions.orchestrator import Orchestrator
     from poac.trials.log import TrialLog
 
+    from poac.credentials.keyring import load_previous_keys
+
     issuer = None
     kms_key = args.kms_key
+    # public keys retired by `poac-keys`, published until their retire_at
+    previous = load_previous_keys(args.previous_keys_file) if args.previous_keys_file else []
     if kms_key:
         # Private key lives in AWS KMS. If a local key file also exists, its
         # public half stays in the JWKS so receipts issued before the switch
@@ -47,7 +51,6 @@ def build_app(args: argparse.Namespace):
         from poac.credentials.signer import KmsMlDsaSigner, KmsSigner
 
         region = os.environ.get("POAC_KMS_REGION")
-        previous = []
         if args.issuer_key_file and Path(args.issuer_key_file).exists():
             previous.append(_load_or_create_issuer_key(Path(args.issuer_key_file)).as_dict(private=False))
         signer = KmsSigner(kms_key, region=region)
@@ -62,7 +65,10 @@ def build_app(args: argparse.Namespace):
         issuer = ReceiptIssuer(
             _load_or_create_issuer_key(Path(args.issuer_key_file)),
             issuer_url=args.base_url,
+            previous_keys=previous,
         )
+        if previous:
+            print(f"publishing {len(previous)} previous key(s) from {args.previous_keys_file}", file=sys.stderr)
 
     secret_hex = os.environ.get("POAC_SERVER_SECRET")
     secret = bytes.fromhex(secret_hex) if secret_hex else None
@@ -152,6 +158,12 @@ def main(argv: list[str] | None = None) -> None:
         help="AWS KMS Ed25519 key ARN/alias to sign receipts with (needs poac[kms] and "
              "AWS credentials; POAC_KMS_REGION). The local key file, if any, becomes a "
              "previous key in the JWKS.",
+    )
+    parser.add_argument(
+        "--previous-keys-file",
+        default=os.environ.get("POAC_PREVIOUS_KEYS_FILE"),
+        help="JSON written by `poac-keys` (rotate-local / retire-kms): public keys to keep "
+             "publishing in the JWKS until their retire_at. Missing file = none.",
     )
     parser.add_argument(
         "--kms-pq-key",

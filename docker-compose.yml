@@ -39,6 +39,8 @@ services:
       # issuer key in AWS KMS (deploy/aws-kms-setup.sh); empty = local key file
       POAC_KMS_ED25519_KEY: ${POAC_KMS_ED25519_KEY:-}
       POAC_KMS_MLDSA65_KEY: ${POAC_KMS_MLDSA65_KEY:-}
+      # written by `poac-keys retire-kms` / `rotate-local` during a rotation
+      POAC_PREVIOUS_KEYS_FILE: /data/previous-keys.json
       POAC_KMS_REGION: ${POAC_KMS_REGION:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

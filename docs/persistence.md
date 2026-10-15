@@ -46,6 +46,14 @@ because deadlines are compared across hosts. Replicas must run NTP; skew
 directly adds to or subtracts from the agent's round deadline. Keep skew
 well under the smallest round deadline (C0: see `sessions/config.py`).
 
+## Rotation
+
+Issuer keys rotate without a verification gap: the retired public key is
+written to `previous-keys.json` with a `retire_at` *before* the new key is
+activated, and `jwks()` publishes it until then. Replicas share the data
+volume, so one `poac-keys` run covers all of them; restart each replica
+afterwards. Procedure and commands: `deployment.md` → "Rotation".
+
 ## Scope
 
 SQLite with WAL is adequate for a handful of replicas on one host or a

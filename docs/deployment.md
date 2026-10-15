@@ -70,17 +70,41 @@ all). boto3 picks it up via `HTTPS_PROXY`. The Lean subprocess runs with a
 scrubbed environment, so neither the proxy variable nor the AWS
 credentials reach kernel checks.
 
-### Switching from a local key to KMS, and rotating
+### Rotation
 
-The JWKS lists the current key first and any *previous* keys after it. On
-startup with both `--kms-key` and an existing `--issuer-key-file`, the
-local key's public half is published as a previous key, so receipts
-issued before the switch keep verifying until they expire (TTL 300 s).
-After one TTL the local key file can be deleted (keep an offline encrypted
-copy per `backup-secrets.sh`). To rotate a KMS key: create a new one with
-the setup script's `ensure_key`, point `POAC_KMS_ED25519_KEY` at it, and
-list the old key's JWK under `previous_keys` for one TTL. Relying parties
-that cache the JWKS should honour `kid` and refetch on an unknown `kid`.
+The JWKS lists the current key(s) first and *previous* public keys after
+them, each until its `retire_at`. Receipts live 300 s, so a 24 h window is
+generous and also covers relying parties with a cached JWKS (`PoacGate`
+refetches on an unknown `kid`). Previous keys live in
+`/data/previous-keys.json`, managed by `poac-keys`; the verifier reads it
+at start (`POAC_PREVIOUS_KEYS_FILE`).
+
+KMS-backed issuer (production):
+
+```bash
+# 1. laptop, admin creds: mint a replacement key (signer policy covers it by tag)
+ED_ALIAS=poac-issuer-ed25519-2027q1 AWS_PROFILE=poac-admin deploy/aws-kms-setup.sh
+# 2. server: snapshot the OLD key's public half before switching
+docker compose exec verifier poac-keys retire-kms \
+    --key "$OLD_ARN" --previous-keys-file /data/previous-keys.json --retire-after 24h
+# 3. server: point .env POAC_KMS_ED25519_KEY at the new ARN, then
+docker compose up -d verifier
+# 4. after retire_at: aws kms schedule-key-deletion --key-id "$OLD_ARN" --pending-window-in-days 7
+```
+
+Local key file (installs without KMS): `poac-keys rotate-local
+--issuer-key-file /data/issuer.jwk --previous-keys-file
+/data/previous-keys.json`, then restart. The previous-keys file is written
+before the new key replaces the old one, so a crash in between never loses
+the old `kid`. `poac-keys show --previous-keys-file …` lists what is
+published and what has retired. The same `retire-kms` flow rotates the
+ML-DSA-65 key (`PQ_ALIAS=…`, `POAC_KMS_MLDSA65_KEY`).
+
+Switching from a local key to KMS is the same idea done by hand: start
+once with both `--kms-key` and the existing `--issuer-key-file`, and the
+local key's public half is published as a previous key; after one TTL
+drop the file argument and delete the file (keep the `backup-secrets.sh`
+bundle).
 
 ## Backups and custody
 

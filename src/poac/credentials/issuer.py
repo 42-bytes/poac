@@ -77,13 +77,14 @@ class ReceiptIssuer:
         self._pq: Signer | None = pq_signer
         self._issuer_url = issuer_url
         self._now = now or (lambda: int(time.time()))
-        self._previous: list[dict] = []
-        for jwk in previous_keys or []:
-            pub = OKPKey.import_key(jwk)
-            d = pub.as_dict(private=False)  # never republish a private part
-            d["kid"] = d.get("kid") or pub.thumbprint()
-            if d["kid"] != self._signer.kid:
-                self._previous.append(d)
+        from poac.credentials.keyring import public_jwk_with_kid  # local: keyring imports signer
+
+        current = {self._signer.kid} | ({self._pq.kid} if self._pq else set())
+        # validated public-only copies (never republish a private part), with
+        # an optional retire_at after which jwks() stops publishing them
+        self._previous: list[dict] = [
+            d for d in (public_jwk_with_kid(j) for j in previous_keys or []) if d["kid"] not in current
+        ]
 
     @classmethod
     def generate(cls, issuer_url: str = "urn:poac:prototype", pq: bool = True) -> "ReceiptIssuer":
@@ -115,7 +116,11 @@ class ReceiptIssuer:
         keys = [self._signer.public_jwk()]
         if self._pq is not None:
             keys.append(self._pq.public_jwk())
-        return {"keys": [*keys, *self._previous]}
+        now = self._now()
+        for k in self._previous:
+            if k.get("retire_at") is None or k["retire_at"] > now:
+                keys.append({kk: v for kk, v in k.items() if kk != "retire_at"})
+        return {"keys": keys}
 
     def issue(
         self,

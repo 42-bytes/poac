@@ -31,6 +31,7 @@ kms = ["boto3>=1.35"]
 poac-verifier = "poac.api.cli:main"
 poac-corpus = "poac.corpus.cli:main"
 poac-mcp = "poac.mcp_server:main"
+poac-keys = "poac.credentials.keys_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
