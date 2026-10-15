@@ -55,6 +55,15 @@ or delete the key. If KMS is unreachable a passed session returns 503
 ("receipt signing unavailable") — never an unsigned or locally-signed
 receipt.
 
+The verifier container has no route to the internet. Its only way out is
+the `kms-egress` sidecar in `docker-compose.yml`: a Squid forward proxy
+(`deploy/kms-egress.squid.conf.tpl`) on both networks that admits
+`CONNECT kms.<POAC_KMS_REGION>.amazonaws.com:443` and denies everything
+else (any other host gets `403` from the proxy; plain HTTP has no route at
+all). boto3 picks it up via `HTTPS_PROXY`. The Lean subprocess runs with a
+scrubbed environment, so neither the proxy variable nor the AWS
+credentials reach kernel checks.
+
 ### Switching from a local key to KMS, and rotating
 
 The JWKS lists the current key first and any *previous* keys after it. On
