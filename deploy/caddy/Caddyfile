@@ -1,0 +1,20 @@
+# Reverse proxy for the PoAC verifier. TLS via ACME DNS-01 against the
+# Route 53 zone that holds POAC_PUBLIC_HOST, using the scoped `poac-dns01`
+# IAM user (deploy/aws-failover-setup.sh). Env: POAC_PUBLIC_HOST,
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, POAC_DNS_ZONE_ID.
+{
+	email {$POAC_ACME_EMAIL:""}
+}
+
+{$POAC_PUBLIC_HOST} {
+	tls {
+		dns route53 {
+			access_key_id {env.AWS_ACCESS_KEY_ID}
+			secret_access_key {env.AWS_SECRET_ACCESS_KEY}
+			region {env.AWS_REGION}
+			hosted_zone_id {env.POAC_DNS_ZONE_ID}
+		}
+	}
+	encode zstd gzip
+	reverse_proxy verifier:8000
+}

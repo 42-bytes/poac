@@ -24,8 +24,10 @@
 
 services:
   verifier:
+    # built in GitHub Actions (.github/workflows/image.yml); `docker compose
+    # pull` on small nodes, `docker compose build` to build locally instead
+    image: ghcr.io/42-bytes/poac-verifier:main
     build: .
-    image: poac-verifier
     command: >
       poac-verifier
       --base-url https://${POAC_PUBLIC_HOST:?set POAC_PUBLIC_HOST in .env}
@@ -93,8 +95,17 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   proxy:
-    image: caddy:2-alpine
-    command: caddy reverse-proxy --from ${POAC_PUBLIC_HOST} --to verifier:8000
+    # Caddy + Route 53 DNS-01 (deploy/caddy). Pulled from GHCR; `--build` rebuilds locally.
+    image: ghcr.io/42-bytes/poac-caddy:main
+    build: deploy/caddy
+    environment:
+      POAC_PUBLIC_HOST: ${POAC_PUBLIC_HOST}
+      POAC_ACME_EMAIL: ${POAC_ACME_EMAIL:-}
+      POAC_DNS_ZONE_ID: ${POAC_DNS_ZONE_ID:?set POAC_DNS_ZONE_ID in .env}
+      AWS_REGION: ${POAC_KMS_REGION:-eu-north-1}
+      # the DNS-01 user (route53 on that one zone); NOT the KMS signer
+      AWS_ACCESS_KEY_ID: ${POAC_DNS_ACCESS_KEY_ID:?set POAC_DNS_ACCESS_KEY_ID in .env}
+      AWS_SECRET_ACCESS_KEY: ${POAC_DNS_SECRET_ACCESS_KEY:?set POAC_DNS_SECRET_ACCESS_KEY in .env}
     ports:
       - "80:80"
       - "443:443"

@@ -13,6 +13,64 @@ internal network reachable only through the Caddy reverse proxy. Set
 `POAC_BASE_URL` to the public URL — it becomes the receipt `iss` and the
 manifest's issuer field, so relying platforms can locate the JWKS.
 
+Images are built in GitHub Actions (`.github/workflows/image.yml`) and
+published as `ghcr.io/42-bytes/poac-verifier:main` and
+`ghcr.io/42-bytes/poac-caddy:main`; `docker compose pull` on a node avoids
+compiling Lean there. `docker compose build` still works for local builds.
+
+### TLS via DNS-01
+
+The proxy is Caddy with the `route53` DNS module (`deploy/caddy/`). It gets
+its certificate by ACME DNS-01 against the Route 53 hosted zone of
+`POAC_PUBLIC_HOST`, using the `poac-dns01` IAM user, which may only write
+TXT records in that one zone. The Caddy container receives only those DNS
+credentials; the KMS signer credentials go only to the verifier. DNS-01
+means a node can hold a valid certificate without receiving traffic, which
+is what makes the passive node below usable the moment DNS flips.
+
+## Two nodes: active-passive failover
+
+Hetzner (Helsinki) is the primary; an AWS Lightsail instance (Stockholm,
+same region as the KMS keys) is the passive secondary. Both sign with the
+same KMS keys, so both publish the same JWKS and receipts verify regardless
+of which node issued them. Sessions are per-node (SQLite); a session in
+flight during a flip is lost and the agent simply starts a new one. Traffic
+is not shared between nodes — the point is availability, not capacity.
+
+DNS: only `poac.42bytes.eu` is delegated to a Route 53 hosted zone (NS
+records at the parent, which stays on Cloudflare). Route 53 failover
+records point the name at the primary while its health check (HTTPS by IP,
+SNI and Host set to the public name, path `/.well-known/jwks.json`, 30 s
+interval, 2 failures) passes, and at the secondary otherwise. TTL 60 s, so
+a flip propagates in roughly 1–2 minutes. `a.` and `b.` sub-names resolve
+directly to each node for drills. Cloudflare's proxy is deliberately not
+used: its bot protection would challenge the agents the verifier exists to
+serve.
+
+Setup, once, with an admin AWS credential:
+
+```bash
+PRIMARY_IP=37.27.146.243 deploy/aws-failover-setup.sh   # Lightsail, zone, health checks, records, dns01 user
+```
+
+It prints the `POAC_DNS_*` values for `.env` (once) and the four NS records
+to add at the parent. Then on the secondary:
+
+```bash
+deploy/bootstrap-host.sh                         # as root (sudo -i on Lightsail)
+deploy/restore-secrets.sh ~/poac-secrets/<bundle>.tar.age --to ubuntu@<ip>   # same .env, corpus, trials log
+# append POAC_DNS_* and POAC_LEAN_MAX_MEMORY_MB=512 to /opt/poac/.env on a 1 GB box
+docker compose pull && docker compose up -d
+```
+
+Nightly from the primary, `deploy/sync-secondary.sh ubuntu@<ip>` copies a
+consistent corpus snapshot (exposure counters) and the human-trials log so
+the secondary does not re-serve items the primary has already retired.
+
+Drill: `docker compose stop verifier` on the primary; within ~2 minutes
+`dig +short poac.42bytes.eu` returns the secondary's IP and an agent can
+earn and verify a receipt; `docker compose start verifier` flips it back.
+
 ## Lean kernel isolation
 
 The `proof` family elaborates untrusted text. Defence layers, inner to
