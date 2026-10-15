@@ -105,6 +105,18 @@ class Orchestrator:
             return None
         return state.expected_answer
 
+    def peek_proof_challenge(self, session_id: str) -> ProofChallenge | None:
+        """Companion to ``peek_expected_answer`` for kernel rounds: the
+        current ProofChallenge, so the trial game can score a late proof
+        with the kernel after the round has already failed on time."""
+        session = self._store.get(session_id)
+        state = session.round_state if session else None
+        return state.payload if state is not None and isinstance(state.payload, ProofChallenge) else None
+
+    @property
+    def lean_bin(self) -> str | None:
+        return self._lean_bin
+
     # --- internals ---------------------------------------------------------
 
     def _round_seed(self, session: Session, round_index: int) -> bytes:

@@ -87,6 +87,7 @@ def test_late_answer_is_recorded_with_untimed_correctness(env):
         "session_id": s["session_id"], "round_index": 1, "nonce": rnd["nonce"],
         "answer": answer}).json()
     assert out["status"] == "failed" and out["failure"] == "timeout"
+    assert out["correct_if_untimed"] is True   # the page says "too slow — but right"
     row = [json.loads(l) for l in path.read_text().splitlines() if '"round"' in l][0]
     assert row["outcome"] == "timeout" and row["correct_if_untimed"] is True
     assert row["mode"] == "relay" and row["answer_ms"] > row["budget_ms"]
@@ -111,13 +112,21 @@ def test_stats_aggregate_by_family_and_mode(env):
         clock.t += dt
         client.post("/play/api/submit", json={
             "session_id": s["session_id"], "round_index": 1,
-            "nonce": s["round"]["nonce"], "answer": "x"})
+            "nonce": s["round"]["nonce"], "answer": solve(_CHALLENGE.validate_python(s["round"]["challenge"]))})
+    # a fast wrong answer: counts as a round (accuracy) but never as a time
+    s = _start(client, mode="relay")
+    clock.t += 0.5
+    client.post("/play/api/submit", json={
+        "session_id": s["session_id"], "round_index": 1, "nonce": s["round"]["nonce"], "answer": "nope"})
     st = client.get("/play/api/stats").json()
-    assert st["sessions"] == 2 and st["rounds"] == 2
+    assert st["sessions"] == 1 and st["rounds"] == 3   # only the failed session finished
     fam = st["by_family"]
-    assert sum(v["n"] for v in fam.values()) == 2
+    assert sum(v["n"] for v in fam.values()) == 3
     assert set(st["by_mode"]) == {"unaided", "relay"}
-    assert st["by_mode"]["relay"]["answer_ms_p50"] == pytest.approx(9000, abs=5)
+    relay = st["by_mode"]["relay"]
+    assert relay["n"] == 2 and relay["n_timed"] == 1
+    assert relay["answer_ms_p50"] == pytest.approx(9000, abs=5)   # not dragged down by the 500 ms wrong answer
+    assert relay["correct_if_untimed_rate"] == 0.5
     # reference numbers for the comparison chart: per model, per tier
     agents = st["agents"]["solve_ms_p50"]
     assert agents["GPT-5.5"]["C1"]["ms"] == 2883 and agents["GPT-5.5"]["C4"]["pass"] == 0.0
@@ -127,7 +136,7 @@ def test_stats_aggregate_by_family_and_mode(env):
     # anonymous per-session mean answer time per mode and tier, sorted, so the
     # page can say where a player stands ("faster than 60% of unaided C1 sessions")
     assert st["session_avg_ms"]["unaided"]["C1"] == [pytest.approx(4000, abs=5)]
-    assert st["session_avg_ms"]["relay"]["C1"] == [pytest.approx(9000, abs=5)]
+    assert st["session_avg_ms"]["relay"]["C1"] == [pytest.approx(9000, abs=5)]   # all-wrong session has no time
 
 
 def test_bad_input_is_4xx(env):

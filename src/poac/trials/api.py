@@ -21,6 +21,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import Field
 
 from poac.challenges.base import answers_match
+from poac.challenges.proof_check import check_proof
 from poac.protocol.models import (
     CapabilityTier,
     NextRoundResponse,
@@ -103,6 +104,7 @@ def build_trials_router(
         if p is None:
             raise HTTPException(404, "unknown or finished trial session")
         expected = orchestrator.peek_expected_answer(body.session_id)
+        proof = orchestrator.peek_proof_challenge(body.session_id) if expected is None else None
         untimed = answers_match(body.answer, expected) if expected is not None else None
         try:
             out = orchestrator.submit(body.session_id, body.round_index, body.nonce, body.answer)
@@ -113,6 +115,19 @@ def build_trials_router(
 
         budget_ms = orchestrator_round_budget(orchestrator, p.tier)
         outcome = "correct" if not isinstance(out, SessionFailedResponse) else out.failure.value
+        if proof is not None:
+            # kernel rounds: the verdict is the kernel's. A late proof was never
+            # checked by the orchestrator, so check it here for the study.
+            if outcome == "correct":
+                untimed = True
+            elif outcome == "wrong_answer":
+                untimed = False
+            elif outcome == "timeout" and orchestrator.lean_bin:
+                try:
+                    untimed = check_proof(orchestrator.lean_bin, preamble=proof.preamble,
+                                          proposition=proof.proposition, submission=body.answer).ok
+                except Exception:  # toolchain hiccup: leave unknown rather than guess
+                    untimed = None
         log.append({
             "event": "round", "session_id": body.session_id, "nickname": p.nickname,
             "mode": p.mode, "tier": p.tier, "round_index": p.round_index, "family": p.family,
@@ -136,7 +151,8 @@ def build_trials_router(
                     "rounds_correct": p.rounds_done + (1 if outcome == "correct" else 0),
                     "total_ms": round((arrival - p.started_at) * 1000, 1),
                 })
-        return out.model_dump(mode="json")
+        # the page shows "too slow — would have been right/wrong" from this
+        return {**out.model_dump(mode="json"), "correct_if_untimed": untimed}
 
     @router.get("/play/api/stats", include_in_schema=False)
     def stats() -> dict[str, Any]:

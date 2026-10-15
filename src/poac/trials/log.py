@@ -67,11 +67,17 @@ class TrialLog:
         rounds = [e for e in ev if e.get("event") == "round"]
         sessions = [e for e in ev if e.get("event") == "session"]
 
+        # Only correct answers count as times: a fast wrong answer says nothing
+        # about how long the puzzle takes. Accuracy rates still use every round.
+        def timed(r: dict[str, Any]) -> bool:
+            return bool(r.get("correct_if_untimed"))
+
         def agg(rs: list[dict[str, Any]]) -> dict[str, Any]:
-            ms = [r["answer_ms"] for r in rs]
+            ms = [r["answer_ms"] for r in rs if timed(r)]
             scored = [r for r in rs if r.get("correct_if_untimed") is not None]
             return {
                 "n": len(rs),
+                "n_timed": len(ms),
                 "answer_ms_p10": _pct(ms, 0.1),
                 "answer_ms_p50": _pct(ms, 0.5),
                 "answer_ms_p90": _pct(ms, 0.9),
@@ -90,10 +96,13 @@ class TrialLog:
                 out.setdefault(str(r.get(key)), []).append(r)
             return {k: agg(v) for k, v in sorted(out.items())}
 
-        # per-session mean answer time, by mode and tier (anonymous; capped so
-        # the payload stays small as the log grows)
+        # per-session mean time over correct answers, by mode and tier
+        # (anonymous; capped so the payload stays small as the log grows);
+        # a session with no correct answer has no time
         per_session: dict[str, dict[str, dict[str, list[float]]]] = {}
         for r in rounds:
+            if not timed(r):
+                continue
             (per_session.setdefault(str(r.get("mode")), {})
              .setdefault(str(r.get("tier")), {})
              .setdefault(r["session_id"], []).append(r["answer_ms"]))
