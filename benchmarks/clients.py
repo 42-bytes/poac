@@ -20,6 +20,7 @@ import collections
 import random
 import re
 import threading
+import time
 
 from poac.protocol.models import (
     CodeChallenge,
@@ -107,6 +108,11 @@ class KeywordHeuristicClient:
         return str(min(int(n) for n in nums) if nums else 0)
 
 
+def _transient(exc: Exception) -> bool:
+    code = getattr(exc, "status_code", None)
+    return code == 429 or (isinstance(code, int) and code >= 500)
+
+
 def _openrouter_pricing(model: str) -> tuple[float, float] | None:
     """(prompt, completion) USD per token from the OpenRouter catalog, for
     ``openrouter:<id>`` model strings. None if unavailable (cost stays None)."""
@@ -161,7 +167,14 @@ class LlmAgentClient:
 
     def answer(self, payload: Payload) -> str:
         prompt = payload.model_dump_json()
-        result = self._agent.run_sync(prompt)
+        for attempt in range(3):
+            try:
+                result = self._agent.run_sync(prompt)
+                break
+            except Exception as exc:  # provider 429/5xx: brief retry inside the round budget
+                if attempt == 2 or not _transient(exc):
+                    raise
+                time.sleep(1.5 * (attempt + 1))
         u = result.usage() if callable(result.usage) else result.usage
         cost = u.cost
         if callable(cost):  # pydantic-ai ≥2.x exposes a method backed by genai-prices
