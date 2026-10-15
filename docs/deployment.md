@@ -89,8 +89,14 @@ docker compose exec verifier poac-keys retire-kms \
     --key "$OLD_ARN" --previous-keys-file /data/previous-keys.json --retire-after 24h
 # 3. server: point .env POAC_KMS_ED25519_KEY at the new ARN, then
 docker compose up -d verifier
-# 4. after retire_at: aws kms schedule-key-deletion --key-id "$OLD_ARN" --pending-window-in-days 7
+# 4. aws kms schedule-key-deletion --key-id "$OLD_ARN" --pending-window-in-days 7
+#    (safe right away: verification uses the snapshotted public key, not KMS)
+# 5. take a fresh deploy/backup-secrets.sh bundle — .env changed
 ```
+
+Drilled live on 2026-10-15: pre-rotation receipt verified after the
+switch, new receipts carried the new `kid`, no downtime beyond the
+container restart.
 
 Local key file (installs without KMS): `poac-keys rotate-local
 --issuer-key-file /data/issuer.jwk --previous-keys-file
