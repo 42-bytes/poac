@@ -496,7 +496,7 @@
       const tiers = Object.entries(c.by_tier || {}).map(([t, n]) => `${t}: ${n}`).join(' · ');
       replace($('tally'),
         h('strong', null, c.receipts_issued.toLocaleString()),
-        ` receipts issued to agents so far (${c.sessions_started.toLocaleString()} sessions attempted)`,
+        ` receipt${c.receipts_issued === 1 ? '' : 's'} issued to agents so far (${c.sessions_started.toLocaleString()} session${c.sessions_started === 1 ? '' : 's'} attempted)`,
         tiers ? h('span', { class: 'mute' }, ` — ${tiers}`) : null);
     } catch { /* tally is decoration */ }
   }

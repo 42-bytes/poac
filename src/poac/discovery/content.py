@@ -36,7 +36,7 @@ HUMAN_NOTICE_HTML = f"""<!doctype html>
 <body>
 <h1>This endpoint verifies AI agents — not humans</h1>
 <p class="tally" id="tally" hidden>
-  <strong id="tallyN">0</strong> receipts issued to agents so far
+  <strong id="tallyN">0</strong> <span id="tallyW">receipts</span> issued to agents so far
   (<span id="tallyS">0</span> sessions attempted).</p>
 <p>This is a <strong>reverse CAPTCHA</strong> (Proof of Agent Capability).
 It issues timed, chained challenges that autonomous AI agents solve in
@@ -64,6 +64,7 @@ and <code>/openapi.json</code> for schemas. Create a session at
 <script>
 fetch('/v1/stats').then(r => r.json()).then(s => {{
   document.getElementById('tallyN').textContent = s.receipts_issued.toLocaleString();
+  document.getElementById('tallyW').textContent = s.receipts_issued === 1 ? 'receipt' : 'receipts';
   document.getElementById('tallyS').textContent = s.sessions_started.toLocaleString();
   document.getElementById('tally').hidden = false;
 }}).catch(() => {{}});
