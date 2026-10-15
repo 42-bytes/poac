@@ -41,6 +41,8 @@
   .svgwrap svg { max-width: 100%; height: auto; display: block; margin: .5rem auto; }
   .note { border-left: 4px solid var(--accent); background: #fff7ed; padding: .7rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; font-size: .95rem; }
   .big { font-size: 1.5rem; font-weight: 700; margin: .4rem 0; }
+  .chart svg { width: 100%; height: auto; display: block; margin: .4rem 0 .2rem; font: 13px system-ui, sans-serif; }
+  .chart .cap { font-size: .85rem; color: var(--mute); margin: 0 0 .6rem; }
   .hidden { display: none; }
 </style>
 </head>
@@ -95,6 +97,7 @@
     <p id="verdictSub" class="mute"></p>
     <table id="roundsTbl"><thead><tr><th>Round</th><th>Family</th><th>Your time</th><th>Budget</th><th>Result</th></tr></thead><tbody></tbody></table>
     <div id="agentsCmp" class="note"></div>
+    <div id="myChart" class="chart"></div>
     <p><button id="againBtn">Play again</button> <button id="changeBtn" class="ghost">Change level / mode</button></p>
   </section>
 
@@ -277,9 +280,79 @@
 
   const LABEL = { timeout: 'too slow', wrong_answer: 'wrong answer', expired: 'session expired', protocol_violation: 'protocol error' };
   let agents = {};
+  let lastStats = null;
   const agentsText = () => Object.entries(agents).map(([k, v]) => `${k} ${fmtS(v)}`).join(', ');
 
-  function finish(out) {
+  // --- speed chart -------------------------------------------------------------------
+  // One horizontal bar per competitor, fastest first: each agent model in its
+  // own colour, people unaided, people relaying through a chatbot, and (after a
+  // session) you. Plain SVG built node by node.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs, text) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    if (text != null) el.textContent = text;
+    return el;
+  }
+  const AGENT_PALETTE = ['#10a37f', '#4285f4', '#d97757', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+  function agentColor(name) {
+    const n = name.toLowerCase();
+    if (n.includes('mini')) return '#5fd3b0';
+    if (n.includes('gpt')) return '#10a37f';
+    if (n.includes('gemini')) return '#4285f4';
+    if (n.includes('claude') || n.includes('opus')) return '#d97757';
+    const names = Object.keys(agents).sort();
+    return AGENT_PALETTE[names.indexOf(name) % AGENT_PALETTE.length];
+  }
+  const HUMAN = { unaided: { label: 'People, unaided (median)', color: '#8a8a8a' },
+                  relay: { label: 'People + chatbot (median)', color: '#b45309' } };
+
+  function speedRows(stats, mine) {
+    const rows = Object.entries(agents).map(([k, v]) => ({ label: k, ms: v, color: agentColor(k), kind: 'agent' }));
+    for (const [mode, meta] of Object.entries(HUMAN)) {
+      const g = stats && stats.by_mode && stats.by_mode[mode];
+      if (g && g.answer_ms_p50 != null) rows.push({ label: `${meta.label}`, ms: g.answer_ms_p50, color: meta.color, kind: 'human', n: g.n });
+    }
+    if (mine != null) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided' });
+    return rows.sort((a, b) => a.ms - b.ms);
+  }
+
+  function speedChart(rows, caption) {
+    if (!rows.length) return null;
+    const W = 640, LBL = 200, PADR = 70, RH = 26, PADT = 6;
+    const H = PADT * 2 + rows.length * RH;
+    const max = Math.max(...rows.map(r => r.ms)) * 1.05;
+    const scale = (ms) => (W - LBL - PADR) * (ms / max);
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'seconds per puzzle, fastest first' });
+    rows.forEach((r, i) => {
+      const y = PADT + i * RH;
+      const me = r.kind === 'me';
+      if (me) svg.append(sv('rect', { x: 0, y: y - 2, width: W, height: RH, fill: '#f5f5f2', rx: 4 }));
+      svg.append(sv('text', { x: LBL - 10, y: y + RH / 2 + 4, 'text-anchor': 'end',
+        'font-weight': me ? 700 : 500, fill: me ? '#1a1a1a' : '#333' }, r.label + (r.sub ? ` (${r.sub})` : '')));
+      svg.append(sv('rect', { x: LBL, y: y + 4, width: Math.max(2, scale(r.ms)), height: RH - 10, fill: r.color, rx: 3 }));
+      svg.append(sv('text', { x: LBL + scale(r.ms) + 6, y: y + RH / 2 + 4, fill: '#333', 'font-weight': me ? 700 : 400,
+        'font-variant-numeric': 'tabular-nums' }, fmtS(r.ms) + (r.n ? ` · ${r.n} rounds` : '')));
+    });
+    return h('div', { class: 'chart' }, svg, caption ? h('p', { class: 'cap' }, caption) : null);
+  }
+
+  // "Where you stand": share of same-mode human sessions you beat, and how many agents beat you.
+  function standing(stats, mine) {
+    const all = ((stats && stats.session_avg_ms) || {})[mine.mode] || [];
+    const others = all.slice(); const i = others.indexOf(Math.round(mine.ms)); if (i >= 0) others.splice(i, 1);
+    const agentsFaster = Object.values(agents).filter(v => v < mine.ms).length, nAgents = Object.keys(agents).length;
+    const parts = [];
+    if (others.length) {
+      const beat = others.filter(v => v > mine.ms).length;
+      parts.push(`faster than ${Math.round(100 * beat / others.length)}% of the ${others.length} other ${mine.mode} session${others.length === 1 ? '' : 's'}`);
+    } else parts.push(`the first ${mine.mode} session on record`);
+    parts.push(agentsFaster === 0 ? `faster than every agent we measured` :
+      agentsFaster === nAgents ? `all ${nAgents} agents were faster` : `${agentsFaster} of ${nAgents} agents were faster`);
+    return `Where you stand: ${parts.join('; ')}.`;
+  }
+
+  async function finish(out) {
     state.current = null;
     const passed = out.status === 'passed';
     replace($('verdict'), passed
@@ -296,8 +369,11 @@
         h('td', { class: r.outcome === 'correct' ? 'ok' : 'bad' }, r.outcome === 'correct' ? 'correct' : (LABEL[r.outcome] || r.outcome)))));
     const mine = state.rounds.reduce((a, r) => a + r.ms, 0) / state.rounds.length;
     replace($('agentsCmp'), 'Your average: ', h('strong', null, fmtS(mine)), ' per puzzle. Frontier agents on the same puzzles: ' + agentsText() + '.');
+    clear($('myChart'));
     show('result');
-    loadStats();
+    await loadStats();   // includes this session now
+    const me = { ms: mine, mode: state.mode };
+    replace($('myChart'), speedChart(speedRows(lastStats, me), standing(lastStats, me)));
   }
   $('againBtn').addEventListener('click', () => $('startBtn').click());
   $('changeBtn').addEventListener('click', () => show('intro'));
@@ -313,12 +389,17 @@
   async function loadStats() {
     try {
       const s = await (await fetch('/play/api/stats')).json();
+      lastStats = s;
       agents = (s.agents || {}).solve_ms_p50_at_C1 || {};
-      if (!s.rounds) { $('stats').textContent = 'No one has played yet. Be the first.'; return; }
+      if (!s.rounds) {
+        replace($('stats'), h('p', null, 'No one has played yet. Be the first.'),
+          speedChart(speedRows(s, null), 'Seconds per puzzle at C1, agents only so far.'));
+        return;
+      }
       replace($('stats'),
         h('p', null, `${s.sessions} sessions, ${s.sessions_passed} passed, ${s.rounds} rounds answered.`),
-        statsTable('By puzzle type', s.by_family), statsTable('By mode', s.by_mode),
-        h('p', { class: 'mute' }, `Agents' median per puzzle at C1: ${agentsText()}.`));
+        speedChart(speedRows(s, null), 'Median seconds per puzzle, fastest first. Agents measured one-shot at C1 on the same corpus.'),
+        statsTable('By puzzle type', s.by_family), statsTable('By mode', s.by_mode));
     } catch { $('stats').textContent = 'stats unavailable'; }
   }
   loadStats();

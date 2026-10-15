@@ -119,6 +119,10 @@ def test_stats_aggregate_by_family_and_mode(env):
     assert set(st["by_mode"]) == {"unaided", "relay"}
     assert st["by_mode"]["relay"]["answer_ms_p50"] == pytest.approx(9000, abs=5)
     assert "agents" in st  # reference numbers for the comparison panel
+    # anonymous per-session mean answer time per mode, sorted, so the page can
+    # say where a player stands ("faster than 60% of unaided sessions")
+    assert st["session_avg_ms"]["unaided"] == [pytest.approx(4000, abs=5)]
+    assert st["session_avg_ms"]["relay"] == [pytest.approx(9000, abs=5)]
 
 
 def test_bad_input_is_4xx(env):

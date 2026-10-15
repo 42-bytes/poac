@@ -85,9 +85,20 @@ class TrialLog:
                 out.setdefault(str(r.get(key)), []).append(r)
             return {k: agg(v) for k, v in sorted(out.items())}
 
+        # per-session mean answer time, by mode (anonymous; capped so the
+        # payload stays small as the log grows)
+        per_session: dict[str, dict[str, list[float]]] = {}
+        for r in rounds:
+            per_session.setdefault(str(r.get("mode")), {}).setdefault(r["session_id"], []).append(r["answer_ms"])
+        session_avg_ms = {
+            mode: sorted(round(sum(v) / len(v)) for v in by_sid.values())[-5000:]
+            for mode, by_sid in sorted(per_session.items())
+        }
+
         return {
             "sessions": len(sessions),
             "sessions_passed": sum(s.get("status") == "passed" for s in sessions),
+            "session_avg_ms": session_avg_ms,
             "rounds": len(rounds),
             "by_family": group("family"),
             "by_mode": group("mode"),
