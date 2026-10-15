@@ -71,11 +71,15 @@ services:
         && exec squid -N -f /tmp/squid.conf
     environment:
       POAC_KMS_REGION: ${POAC_KMS_REGION:-eu-north-1}
+    user: "proxy"
     volumes:
       - ./deploy/kms-egress.squid.conf.tpl:/etc/squid/kms.conf.tpl:ro
+    tmpfs:
+      - /tmp:size=32m
+      - /var/log/squid:size=16m
+      - /var/spool/squid:size=16m
     networks: [internal, default]
     cap_drop: [ALL]
-    cap_add: [SETUID, SETGID, CHOWN]   # squid drops to its own user at start
     security_opt:
       - no-new-privileges:true
     pids_limit: 64
