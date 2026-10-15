@@ -23,6 +23,13 @@ stateless: the verifier enforces nonce freshness and single use, and the
 ``aud`` claim ties the presentation to this audience. A missing or bad
 presentation yields 401 with a ``WWW-Authenticate`` challenge that tells
 the agent where the verifier and the nonce endpoint are.
+
+Issuer pinning: the gate trusts exactly ``verifier_url``. After the
+verifier answers "valid" the gate independently requires the receipt's
+``iss`` to equal ``verifier_url`` and its ``kid`` to appear in that
+verifier's ``/.well-known/jwks.json`` (cached; refetched once on an unknown
+``kid`` to tolerate key rotation). A typo'd ``verifier_url``, or a receipt
+minted by some other issuer, therefore fails closed.
 """
 
 from __future__ import annotations
@@ -32,7 +39,7 @@ from dataclasses import dataclass
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from poac.client import kb_nonce
+from poac.client import kb_nonce, receipt_issuer
 from poac.protocol.models import CapabilityTier, IdentityTier
 
 _TIER_ORDER = {t: i for i, t in enumerate(CapabilityTier)}
@@ -72,6 +79,7 @@ class PoacGate:
         self.min_identity_tier = min_identity_tier
         self.nonce_path = nonce_path
         self._http = http or httpx.Client(base_url=self.verifier_url, timeout=timeout)
+        self._kids: frozenset[str] | None = None   # pinned verifier's JWKS kids, lazily cached
         self.router = APIRouter()
         self.router.add_api_route(nonce_path, self._nonce_endpoint, methods=["GET"],
                                   include_in_schema=False)
@@ -86,6 +94,25 @@ class PoacGate:
         response.headers["Cache-Control"] = "no-store"
         return {"nonce": body["nonce"], "expires_in": body["expires_in"],
                 "audience": self.audience, "verifier": self.verifier_url}
+
+    # --- issuer pinning ----------------------------------------------------------------
+
+    def _known_kid(self, kid: str | None) -> bool:
+        if not kid:
+            return False
+        if self._kids is None or kid not in self._kids:
+            r = self._http.get("/.well-known/jwks.json")
+            if r.status_code != 200:
+                raise HTTPException(503, "PoAC verifier JWKS unavailable")
+            self._kids = frozenset(k.get("kid") for k in r.json().get("keys", []))
+        return kid in self._kids
+
+    def _check_pinned_issuer(self, receipt: str) -> None:
+        iss, kid = receipt_issuer(receipt)
+        if iss != self.verifier_url:
+            raise self._challenge(f"PoAC receipt issuer mismatch: {iss!r} is not the pinned verifier")
+        if not self._known_kid(kid):
+            raise self._challenge(f"PoAC receipt signed with unknown signing key {kid!r}")
 
     # --- the dependency -----------------------------------------------------------------
 
@@ -115,6 +142,7 @@ class PoacGate:
         res = r.json()
         if not res.get("valid"):
             raise self._challenge(f"PoAC presentation rejected: {res.get('reason')}")
+        self._check_pinned_issuer(receipt)
         agent = PoacAgent(
             tier=res["capability_tier"], identity_tier=res["identity_tier"],
             holder_thumbprint=res.get("holder_thumbprint"),

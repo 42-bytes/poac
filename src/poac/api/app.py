@@ -176,6 +176,7 @@ def create_app(
             audience=body.audience,
             nonce=body.nonce,
             issuer_jwks=issuer.jwks(),
+            expected_issuer=issuer.issuer_url,
         )
 
     # --- discovery -----------------------------------------------------------

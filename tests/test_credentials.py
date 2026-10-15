@@ -185,3 +185,14 @@ def test_holder_thumbprint_matches_joserfc(holder_key):
     jwk_dict = holder_key.as_dict(private=False)
     model = HolderJwk(kty="OKP", crv="Ed25519", x=jwk_dict["x"])
     assert holder_thumbprint(model) == holder_key.thumbprint()
+
+
+def test_issuer_pinning(issuer, holder_key):
+    receipt = _issue(issuer, holder_key)
+    kb = create_kb_jwt(holder_key, receipt, audience="https://rp.example", nonce="n-1")
+    ok = verify_presentation(receipt, kb, "https://rp.example", "n-1", issuer.jwks(),
+                             expected_issuer="https://poac.test")
+    assert ok.valid, ok.reason
+    bad = verify_presentation(receipt, kb, "https://rp.example", "n-1", issuer.jwks(),
+                              expected_issuer="https://poac.test/")  # trailing-slash typo
+    assert not bad.valid and "issuer mismatch" in bad.reason

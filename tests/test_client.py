@@ -13,7 +13,7 @@ from poac.reference.solver import solve
 
 @pytest.fixture
 def http():
-    return TestClient(create_app(lean_bin=None, session_rate_per_minute=10_000))
+    return TestClient(create_app(lean_bin=None, session_rate_per_minute=10_000, base_url="http://poac.test"))
 
 
 def test_quickstart_earn_present_verify(http):
@@ -81,3 +81,19 @@ def test_manifest_and_tiers(http):
     agent = PoacClient("http://poac.test", http=http)
     assert agent.tiers() == ["C0", "C1", "C2", "C3"]
     assert "issuer" in agent.manifest()
+
+
+def test_verify_pins_issuer(http):
+    agent = PoacClient("http://poac.test", http=http)
+    receipt = agent.earn("C1", solver=solve)
+    rp = PoacClient("http://poac.test", http=http)
+    nonce = rp.verify_nonce()
+    kb = agent.present(receipt, audience="https://rp.example", nonce=nonce)
+    res = rp.verify(receipt, kb, audience="https://rp.example", nonce=nonce,
+                    expected_issuer="http://other.test")
+    assert res["valid"] is False and "issuer mismatch" in res["reason"]
+    # the nonce was consumed by the verifier, so a fresh one for the positive case
+    nonce = rp.verify_nonce()
+    kb = agent.present(receipt, audience="https://rp.example", nonce=nonce)
+    assert rp.verify(receipt, kb, audience="https://rp.example", nonce=nonce,
+                     expected_issuer="http://poac.test")["valid"] is True

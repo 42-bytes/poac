@@ -71,8 +71,13 @@ def verify_presentation(
     nonce: str,
     issuer_jwks: dict,
     now: Callable[[], int] | None = None,
+    expected_issuer: str | None = None,
 ) -> PresentationResult:
-    """Full verification chain; any failure is a hard reject with a reason."""
+    """Full verification chain; any failure is a hard reject with a reason.
+
+    ``expected_issuer`` pins the receipt's ``iss`` claim (exact string match):
+    a verifier passes its own issuer URL so a receipt from any other issuer
+    — even one whose key somehow made it into the JWKS — is refused."""
     now_fn = now or (lambda: int(time.time()))
 
     # 1. issuer signature (EdDSA only) and pinned typ
@@ -84,6 +89,8 @@ def verify_presentation(
     if decoded.header.get("typ") != RECEIPT_TYP:
         return _reject("receipt typ mismatch")
     claims = decoded.claims
+    if expected_issuer is not None and claims.get("iss") != expected_issuer:
+        return _reject("receipt issuer mismatch")
 
     # 2. receipt freshness
     exp, iat = claims.get("exp"), claims.get("iat")

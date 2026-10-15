@@ -16,7 +16,7 @@ AUD = "https://forum.example"
 
 @pytest.fixture
 def verifier():
-    return TestClient(create_app(lean_bin=None, session_rate_per_minute=10_000))
+    return TestClient(create_app(lean_bin=None, session_rate_per_minute=10_000, base_url="http://poac.test"))
 
 
 @pytest.fixture
@@ -89,3 +89,79 @@ def test_unbound_receipt_fails_identity_floor(verifier, forum):
     r = forum.post("/posts", headers={"Authorization": f"PoAC {receipt.token}", "PoAC-KB": kb})
     # verifier already refuses KB presentations for unbound receipts, or the gate's I1 floor does
     assert r.status_code in (401, 403)
+
+
+# --- issuer pinning (H2) ------------------------------------------------------------
+# A gate trusts exactly one verifier. Even if whatever answers /v1/verify says
+# "valid", the receipt must name that verifier as `iss` and be signed under a
+# `kid` from that verifier's JWKS.
+
+
+def _lenient_verifier(jwks: dict) -> TestClient:
+    """Stand-in for a compromised/typo'd verifier: says valid to everything."""
+    app = FastAPI()
+
+    @app.get("/v1/verify/nonce")
+    def nonce():
+        return {"nonce": "n", "expires_in": 60}
+
+    @app.post("/v1/verify")
+    def verify(body: dict):
+        return {"valid": True, "capability_tier": "C3", "identity_tier": "I1"}
+
+    @app.get("/.well-known/jwks.json")
+    def keys():
+        return jwks
+
+    return TestClient(app)
+
+
+def _gate_app(gate):
+    app = FastAPI()
+    app.include_router(gate.router)
+
+    @app.post("/posts")
+    def create_post(agent=Depends(gate.require)):
+        return {"tier": agent.tier}
+
+    return TestClient(app)
+
+
+def test_receipt_from_other_issuer_refused_even_if_verify_says_valid(verifier):
+    agent = PoacClient("http://poac.test", http=verifier)      # iss = http://poac.test
+    receipt = agent.earn("C1", solver=solve)
+    kb = agent.present(receipt, audience=AUD, nonce="n")
+    headers = {"Authorization": f"PoAC {receipt.token}", "PoAC-KB": kb}
+
+    lenient = _lenient_verifier(verifier.get("/.well-known/jwks.json").json())
+    pinned_elsewhere = _gate_app(PoacGate(verifier_url="http://other.test", audience=AUD,
+                                          http=lenient))
+    r = pinned_elsewhere.post("/posts", headers=headers)
+    assert r.status_code == 401 and "issuer mismatch" in r.json()["detail"]
+
+    # same iss, but the signing kid is not in the pinned verifier's JWKS
+    foreign = _lenient_verifier({"keys": []})
+    r = _gate_app(PoacGate(verifier_url="http://poac.test", audience=AUD, http=foreign)) \
+        .post("/posts", headers=headers)
+    assert r.status_code == 401 and "unknown signing key" in r.json()["detail"]
+
+    # iss and kid both match the pinned verifier: the lenient answer is accepted
+    r = _gate_app(PoacGate(verifier_url="http://poac.test", audience=AUD, http=lenient)) \
+        .post("/posts", headers=headers)
+    assert r.status_code == 200 and r.json() == {"tier": "C3"}
+
+
+def test_gate_refetches_jwks_once_on_unknown_kid(verifier):
+    agent = PoacClient("http://poac.test", http=verifier)
+    receipt = agent.earn("C1", solver=solve)
+    kb = agent.present(receipt, audience=AUD, nonce="n")
+    headers = {"Authorization": f"PoAC {receipt.token}", "PoAC-KB": kb}
+    real_jwks = verifier.get("/.well-known/jwks.json").json()
+
+    served = {"keys": []}          # rotated key not yet seen by the gate's cache
+    lenient = _lenient_verifier(served)
+    gate = PoacGate(verifier_url="http://poac.test", audience=AUD, http=lenient)
+    forum = _gate_app(gate)
+    assert forum.post("/posts", headers=headers).status_code == 401
+    served["keys"] = real_jwks["keys"]        # verifier now publishes the new key
+    assert forum.post("/posts", headers=headers).status_code == 200

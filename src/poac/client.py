@@ -126,13 +126,20 @@ def _unverified_claims(jws: str) -> dict[str, Any]:
     return json.loads(base64.urlsafe_b64decode(payload))
 
 
-def kb_nonce(kb_jwt: str) -> str | None:
-    """Nonce claim of a key-binding JWT, read without verification (the
-    verifier re-checks it). None if the token is malformed."""
+def _unverified_header(jws: str) -> dict[str, Any]:
+    header = jws.split(".")[0]
+    header += "=" * (-len(header) % 4)
+    return json.loads(base64.urlsafe_b64decode(header))
+
+
+def receipt_issuer(receipt: str) -> tuple[str | None, str | None]:
+    """``(iss, kid)`` of a receipt, read without verification — for pinning
+    checks *after* the verifier has validated the signature. ``(None, None)``
+    if the token is malformed."""
     try:
-        return _unverified_claims(kb_jwt).get("nonce")
-    except Exception:  # noqa: BLE001 - malformed token is the caller's 401, not a 500
-        return None
+        return _unverified_claims(receipt).get("iss"), _unverified_header(receipt).get("kid")
+    except Exception:  # noqa: BLE001
+        return None, None
 
 
 def kb_nonce(kb_jwt: str) -> str | None:
@@ -244,7 +251,17 @@ class PoacClient:
     def verify_nonce(self) -> str:
         return str(self._get("/v1/verify/nonce")["nonce"])
 
-    def verify(self, receipt: Receipt | str, kb_jwt: str, audience: str, nonce: str) -> dict[str, Any]:
+    def verify(
+        self,
+        receipt: Receipt | str,
+        kb_jwt: str,
+        audience: str,
+        nonce: str,
+        expected_issuer: str | None = None,
+    ) -> dict[str, Any]:
+        """Ask the verifier to check a presentation. With ``expected_issuer``
+        the receipt's ``iss`` must also equal it — pin this to the verifier
+        you trust so a receipt minted elsewhere is refused locally."""
         token = receipt.token if isinstance(receipt, Receipt) else receipt
         r = self._http.post(
             "/v1/verify",
@@ -252,7 +269,12 @@ class PoacClient:
         )
         if r.status_code != 200:
             raise PoacError(f"POST /v1/verify -> {r.status_code}: {r.text[:300]}")
-        return r.json()
+        result = r.json()
+        if result.get("valid") and expected_issuer is not None:
+            iss, _ = receipt_issuer(token)
+            if iss != expected_issuer:
+                return {"valid": False, "reason": f"receipt issuer mismatch ({iss!r})"}
+        return result
 
     # --- internals -------------------------------------------------------------------
 

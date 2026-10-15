@@ -214,7 +214,12 @@ accepted for both signatures (no algorithm negotiation).
 Relying platforms integrate through `poac.rp.PoacGate` (FastAPI
 dependency: nonce proxy at `/poac/nonce`, `Authorization: PoAC <receipt>`
 + `PoAC-KB: <kb_jwt>`, `WWW-Authenticate: PoAC …` challenge on failure).
-Profiles for carrying the receipt on RFC 9421 / Web Bot Auth, DPoP and
+Issuer pinning is enforced at both ends: the verifier rejects any receipt
+whose `iss` is not its own issuer URL, and the gate independently
+requires `iss == verifier_url` and `kid ∈` that verifier's JWKS after a
+"valid" answer, so a receipt minted by another issuer, or a mis-typed
+`verifier_url`, fails closed. `PoacClient.verify(expected_issuer=…)`
+offers the same check to non-FastAPI relying parties. Profiles for carrying the receipt on RFC 9421 / Web Bot Auth, DPoP and
 SD-JWT VC are in [`standards-binding.md`](standards-binding.md).
 
 ## 7. Discovery
