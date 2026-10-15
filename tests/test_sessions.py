@@ -13,7 +13,7 @@ from poac.protocol.models import (
     SessionPassedResponse,
 )
 from poac.reference.solver import solve
-from poac.sessions.config import TIERS
+from poac.sessions.config import TIERS, tier_requires_kernel
 from poac.sessions.orchestrator import Orchestrator, SessionError
 
 
@@ -63,6 +63,8 @@ def _play(orchestrator, clock, tier, per_round_delay=1.0, holder_jwk=None):
 
 @pytest.mark.parametrize("tier", list(CapabilityTier))
 def test_full_pass_all_tiers(orchestrator, clock, tier):
+    if LEAN is None and tier_requires_kernel(TIERS[tier]):
+        pytest.skip("no Lean toolchain: kernel tiers unavailable")
     created, outcome = _play(orchestrator, clock, tier)
     assert isinstance(outcome, SessionPassedResponse)
     assert outcome.capability_tier is tier

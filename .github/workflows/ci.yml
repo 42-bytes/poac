@@ -29,9 +29,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # the gitleaks binary directly (the marketplace action wants a licence for org repos)
+      - run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            git /repo --no-banner --redact -c /repo/.gitleaks.toml
 
   build:
     runs-on: ubuntu-latest
