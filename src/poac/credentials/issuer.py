@@ -8,13 +8,15 @@ in for interoperability testing later without touching the orchestrator.
 
 from __future__ import annotations
 
+import base64
+import json
 import time
 from typing import Callable
 
-from joserfc import jwt
 from joserfc.jwk import OKPKey
 from joserfc.jws import JWSRegistry
 
+from poac.credentials.signer import LocalKeySigner, Signer
 from poac.protocol.models import (
     PROTOCOL_VERSION,
     SUITE_VERSION,
@@ -40,17 +42,32 @@ def holder_thumbprint(holder_jwk: HolderJwk) -> str:
 
 
 class ReceiptIssuer:
+    """Builds and signs receipts. ``key`` may be an Ed25519 ``OKPKey`` (kept
+    for compatibility; wrapped in ``LocalKeySigner``) or any ``Signer``
+    (e.g. ``KmsSigner``). ``previous_keys`` are public JWKs that stay in the
+    JWKS so receipts signed before a key switch verify until they expire."""
+
     def __init__(
         self,
-        key: OKPKey,
+        key: OKPKey | Signer,
         issuer_url: str = "urn:poac:prototype",
         now: Callable[[], int] | None = None,
+        previous_keys: list[dict] | None = None,
     ):
-        if key.curve_name != "Ed25519":
-            raise ValueError("issuer key must be Ed25519")
-        self._key = key
+        if isinstance(key, OKPKey):
+            if key.curve_name != "Ed25519":
+                raise ValueError("issuer key must be Ed25519")
+            key = LocalKeySigner(key)
+        self._signer: Signer = key
         self._issuer_url = issuer_url
         self._now = now or (lambda: int(time.time()))
+        self._previous: list[dict] = []
+        for jwk in previous_keys or []:
+            pub = OKPKey.import_key(jwk)
+            d = pub.as_dict(private=False)  # never republish a private part
+            d["kid"] = d.get("kid") or pub.thumbprint()
+            if d["kid"] != self._signer.kid:
+                self._previous.append(d)
 
     @classmethod
     def generate(cls, issuer_url: str = "urn:poac:prototype") -> "ReceiptIssuer":
@@ -61,11 +78,14 @@ class ReceiptIssuer:
     def issuer_url(self) -> str:
         return self._issuer_url
 
+    @property
+    def signer(self) -> Signer:
+        return self._signer
+
     def jwks(self) -> dict:
-        """Public JWKS for /.well-known/jwks.json."""
-        public = self._key.as_dict(private=False)
-        public.setdefault("kid", self._key.thumbprint())
-        return {"keys": [public]}
+        """Public JWKS for /.well-known/jwks.json: current key first, then
+        any previous keys still inside their switchover window."""
+        return {"keys": [self._signer.public_jwk(), *self._previous]}
 
     def issue(
         self,
@@ -101,6 +121,18 @@ class ReceiptIssuer:
         header = {
             "alg": ALLOWED_ALG,
             "typ": RECEIPT_TYP,
-            "kid": self._key.thumbprint(),
+            "kid": self._signer.kid,
         }
-        return jwt.encode(header, claims, self._key, registry=EDDSA_REGISTRY)
+        # Compact JWS assembled here so KMS- and local-signed receipts are
+        # byte-for-byte the same shape (RFC 7515 §5.1, JSON with no spaces).
+        signing_input = _b64url(_json(header)) + "." + _b64url(_json(claims))
+        signature = self._signer.sign(signing_input.encode("ascii"))
+        return signing_input + "." + _b64url(signature)
+
+
+def _json(obj: dict) -> bytes:
+    return json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")

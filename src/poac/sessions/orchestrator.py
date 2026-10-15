@@ -28,6 +28,7 @@ from poac.challenges.base import answers_match
 from poac.challenges.proof_check import check_proof
 from poac.challenges.source import ChallengeSource, TemplateSource
 from poac.credentials.issuer import ReceiptIssuer
+from poac.credentials.signer import SignerError
 from poac.protocol.models import (
     MAX_ANSWER_CHARS,
     CapabilityTier,
@@ -290,16 +291,22 @@ class Orchestrator:
 
         session.status = "passed"
         self._store.put(session)
-        receipt = self._issuer.issue(
-            session_id=session.session_id,
-            capability_tier=session.tier,
-            identity_tier=session.identity_tier,
-            families=session.families,
-            latencies_ms=session.latencies_ms,
-            rounds_total=session.config.rounds,
-            receipt_ttl_s=session.config.receipt_ttl_s,
-            holder_jwk=session.holder_jwk,
-        )
+        try:
+            receipt = self._issuer.issue(
+                session_id=session.session_id,
+                capability_tier=session.tier,
+                identity_tier=session.identity_tier,
+                families=session.families,
+                latencies_ms=session.latencies_ms,
+                rounds_total=session.config.rounds,
+                receipt_ttl_s=session.config.receipt_ttl_s,
+                holder_jwk=session.holder_jwk,
+            )
+        except SignerError as exc:
+            # The prover passed; the signing backend (e.g. KMS) is down. No
+            # receipt can be issued, and the session cannot be replayed to
+            # get one later — surface 503 rather than inventing a token.
+            raise VerifierError(f"receipt signing unavailable ({exc}); session passed but unissued") from exc
         return SessionPassedResponse(
             status="passed",
             session_id=session.session_id,

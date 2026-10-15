@@ -124,8 +124,10 @@ def test_unbound_i0_receipt_not_portable(issuer, holder_key):
 def test_algorithm_confusion_rejected(issuer, holder_key):
     """Receipt re-signed with HS256 using a symmetric key must be rejected."""
     receipt = _issue(issuer, holder_key)
+    from joserfc.jwk import KeySet
+
     claims = jwt.decode(
-        receipt, issuer._key, registry=__import__(
+        receipt, KeySet.import_key_set(issuer.jwks()), registry=__import__(
             "poac.credentials.issuer", fromlist=["EDDSA_REGISTRY"]
         ).EDDSA_REGISTRY,
     ).claims

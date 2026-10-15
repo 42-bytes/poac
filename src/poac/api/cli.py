@@ -38,7 +38,22 @@ def build_app(args: argparse.Namespace):
     from poac.trials.log import TrialLog
 
     issuer = None
-    if args.issuer_key_file:
+    kms_key = args.kms_key
+    if kms_key:
+        # Private key lives in AWS KMS. If a local key file also exists, its
+        # public half stays in the JWKS so receipts issued before the switch
+        # keep verifying until they expire (5 min); the private part is no
+        # longer used for anything.
+        from poac.credentials.signer import KmsSigner
+
+        previous = []
+        if args.issuer_key_file and Path(args.issuer_key_file).exists():
+            previous.append(_load_or_create_issuer_key(Path(args.issuer_key_file)).as_dict(private=False))
+        signer = KmsSigner(kms_key, region=os.environ.get("POAC_KMS_REGION"))
+        issuer = ReceiptIssuer(signer, issuer_url=args.base_url, previous_keys=previous)
+        print(f"issuer key: AWS KMS {kms_key} (kid {signer.kid})"
+              + (f"; publishing {len(previous)} previous key(s)" if previous else ""), file=sys.stderr)
+    elif args.issuer_key_file:
         issuer = ReceiptIssuer(
             _load_or_create_issuer_key(Path(args.issuer_key_file)),
             issuer_url=args.base_url,
@@ -73,7 +88,7 @@ def build_app(args: argparse.Namespace):
         if secret is None:
             sys.exit("--state-db requires POAC_SERVER_SECRET so replicas agree on the HMAC chain")
         if issuer is None:
-            sys.exit("--state-db requires --issuer-key-file so replicas agree on receipts")
+            sys.exit("--state-db requires --issuer-key-file or --kms-key so replicas agree on receipts")
         from poac.api.nonces import SqliteNonceStore
         from poac.challenges.proof_check import find_lean
         from poac.sessions.store import SqliteSessionStore
@@ -125,6 +140,13 @@ def main(argv: list[str] | None = None) -> None:
         "--corpus-db",
         default=os.environ.get("POAC_CORPUS_DB"),
         help="private challenge corpus (SQLite); templates are the fallback",
+    )
+    parser.add_argument(
+        "--kms-key",
+        default=os.environ.get("POAC_KMS_ED25519_KEY"),
+        help="AWS KMS Ed25519 key ARN/alias to sign receipts with (needs poac[kms] and "
+             "AWS credentials; POAC_KMS_REGION). The local key file, if any, becomes a "
+             "previous key in the JWKS.",
     )
     parser.add_argument(
         "--trials-log",

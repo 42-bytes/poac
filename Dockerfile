@@ -34,7 +34,7 @@ ENV POAC_LEAN_BIN=/opt/lean/bin/lean \
 WORKDIR /app
 COPY --chown=poac:poac pyproject.toml README.md LICENSE ./
 COPY --chown=poac:poac src ./src
-RUN pip install --no-cache-dir . \
+RUN pip install --no-cache-dir ".[kms]" \
  && rm -rf /root/.cache \
  && install -d -o poac -g poac -m 700 /data   # persistent state; ownership seeds fresh named volumes
 VOLUME /data
