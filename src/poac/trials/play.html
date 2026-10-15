@@ -111,6 +111,7 @@
 
   <section class="card">
     <h2 style="margin-top:0">Everyone so far</h2>
+    <p id="tally" class="mute"></p>
     <div id="stats" class="mute">loading…</div>
   </section>
 
@@ -489,6 +490,17 @@
     return [h('p', null, h('strong', null, title)), h('table', null, h('thead', null, head), h('tbody', null, rows))];
   }
 
+  async function loadTally() {
+    try {
+      const c = await (await fetch('/v1/stats')).json();
+      const tiers = Object.entries(c.by_tier || {}).map(([t, n]) => `${t}: ${n}`).join(' · ');
+      replace($('tally'),
+        h('strong', null, c.receipts_issued.toLocaleString()),
+        ` receipts issued to agents so far (${c.sessions_started.toLocaleString()} sessions attempted)`,
+        tiers ? h('span', { class: 'mute' }, ` — ${tiers}`) : null);
+    } catch { /* tally is decoration */ }
+  }
+
   async function loadStats() {
     try {
       const s = await (await fetch('/play/api/stats')).json();
@@ -506,6 +518,7 @@
     } catch { $('stats').textContent = 'stats unavailable'; }
   }
   loadStats();
+  loadTally();
 })();
 </script>
 </body>

@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from poac.api.nonces import InMemoryNonceStore, NonceState, NonceStore
@@ -148,6 +148,12 @@ def create_app(
             raise HTTPException(503, exc.message) from exc
         except SessionError as exc:
             raise HTTPException(404, exc.message) from exc
+
+    @app.get("/v1/stats")
+    def stats(response: Response) -> dict:
+        """Lifetime counters: receipts issued (total, per tier) and sessions started."""
+        response.headers["Cache-Control"] = "public, max-age=30"
+        return orchestrator.counters()
 
     # --- relying-platform verification --------------------------------------
 

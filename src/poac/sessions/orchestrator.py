@@ -114,6 +114,16 @@ class Orchestrator:
     def store(self) -> SessionStore:
         return self._store
 
+    def counters(self) -> dict:
+        """Lifetime totals: receipts issued (overall and per tier), sessions started."""
+        raw = self._store.counters()
+        by_tier = {k.split(":", 1)[1]: v for k, v in raw.items() if k.startswith("receipts_issued:")}
+        return {
+            "receipts_issued": raw.get("receipts_issued", 0),
+            "sessions_started": raw.get("sessions_started", 0),
+            "by_tier": dict(sorted(by_tier.items())),
+        }
+
     @property
     def clock(self) -> Callable[[], float]:
         return self._clock
@@ -232,6 +242,7 @@ class Orchestrator:
             )
             first_round = self._issue_round(session)
             self._store.put(session)
+            self._store.bump("sessions_started")
         return SessionCreatedResponse(
             session_id=session.session_id,
             tier=tier,
@@ -365,6 +376,8 @@ class Orchestrator:
             # receipt can be issued, and the session cannot be replayed to
             # get one later — surface 503 rather than inventing a token.
             raise VerifierError(f"receipt signing unavailable ({exc}); session passed but unissued") from exc
+        self._store.bump("receipts_issued")
+        self._store.bump(f"receipts_issued:{session.tier.value}")
         return SessionPassedResponse(
             status="passed",
             session_id=session.session_id,

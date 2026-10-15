@@ -35,11 +35,16 @@ class SessionStore(Protocol):
         ...
     def sweep(self, now: float) -> int:
         """Drop sessions whose ``expires_at`` <= now; return how many."""
+    def bump(self, name: str, by: int = 1) -> None:
+        """Add to a lifetime counter (survives sweeps; persistent in SQLite)."""
+        ...
+    def counters(self) -> dict[str, int]: ...
 
 
 class InMemorySessionStore:
     def __init__(self) -> None:
         self._sessions: dict[str, Session] = {}
+        self._counters: dict[str, int] = {}
         self._lock = threading.Lock()
 
     @contextmanager
@@ -69,6 +74,12 @@ class InMemorySessionStore:
             del self._sessions[sid]
         return len(stale)
 
+    def bump(self, name: str, by: int = 1) -> None:
+        self._counters[name] = self._counters.get(name, 0) + by
+
+    def counters(self) -> dict[str, int]:
+        return dict(self._counters)
+
 
 class SqliteSessionStore:
     """One table, whole-record JSON. ``expires_at`` is indexed for sweeps."""
@@ -89,6 +100,9 @@ class SqliteSessionStore:
         )
         self._conn.execute(
             "CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at)"
+        )
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL)"
         )
 
     @contextmanager
@@ -132,6 +146,16 @@ class SqliteSessionStore:
     def sweep(self, now: float) -> int:
         cur = self._conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
         return cur.rowcount
+
+    def bump(self, name: str, by: int = 1) -> None:
+        self._conn.execute(
+            "INSERT INTO counters(name, value) VALUES (?, ?)"
+            " ON CONFLICT(name) DO UPDATE SET value = value + excluded.value",
+            (name, by),
+        )
+
+    def counters(self) -> dict[str, int]:
+        return dict(self._conn.execute("SELECT name, value FROM counters").fetchall())
 
     def close(self) -> None:
         self._conn.close()

@@ -30,9 +30,14 @@ HUMAN_NOTICE_HTML = f"""<!doctype html>
  code {{ background: #f2f2f2; padding: .1em .35em; border-radius: 4px; }}
  .box {{ border-left: 4px solid #b45309; background: #fff7ed;
         padding: .8rem 1rem; margin: 1.5rem 0; }}
+ .tally {{ color: #555; font-size: .95em; margin-top: -.5rem; }}
+ .tally strong {{ color: #1a1a1a; font-variant-numeric: tabular-nums; }}
 </style></head>
 <body>
 <h1>This endpoint verifies AI agents — not humans</h1>
+<p class="tally" id="tally" hidden>
+  <strong id="tallyN">0</strong> receipts issued to agents so far
+  (<span id="tallyS">0</span> sessions attempted).</p>
 <p>This is a <strong>reverse CAPTCHA</strong> (Proof of Agent Capability).
 It issues timed, chained challenges that autonomous AI agents solve in
 seconds but that cannot be completed by a person — even one copy-pasting
@@ -56,6 +61,13 @@ and <code>/openapi.json</code> for schemas. Create a session at
 
 <h2>What passing does and does not prove</h2>
 <p>{HONEST_CLAIMS}</p>
+<script>
+fetch('/v1/stats').then(r => r.json()).then(s => {{
+  document.getElementById('tallyN').textContent = s.receipts_issued.toLocaleString();
+  document.getElementById('tallyS').textContent = s.sessions_started.toLocaleString();
+  document.getElementById('tally').hidden = false;
+}}).catch(() => {{}});
+</script>
 </body></html>
 """
 
@@ -98,6 +110,7 @@ Important: {HONEST_CLAIMS}
 - [Agent Card](/.well-known/agent-card.json): A2A-style discovery record
 - [Skill](/skill.md): loadable SKILL.md with the exact steps and per-family answering tips
 - [JWKS](/.well-known/jwks.json): issuer public keys
+- [Stats](/v1/stats): lifetime counters — receipts issued (total, per tier), sessions started
 - [Human notice](/): explanation for human visitors
 """
 
