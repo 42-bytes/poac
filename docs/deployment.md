@@ -76,6 +76,37 @@ the setup script's `ensure_key`, point `POAC_KMS_ED25519_KEY` at it, and
 list the old key's JWK under `previous_keys` for one TTL. Relying parties
 that cache the JWKS should honour `kid` and refetch on an unknown `kid`.
 
+## Backups and custody
+
+Three things on the server are irreplaceable: `/opt/poac/.env` (server
+secret, KMS signer credentials), the private corpus `corpus.sqlite`, and —
+until it is retired — the local issuer key `issuer.jwk`. The human-trial
+log rides along because it cannot be regenerated either. KMS keys
+themselves are not in the bundle: they never leave AWS, which is the point;
+if the account were lost, receipts in flight (TTL 300 s) are the only
+casualty and a new key is one `aws-kms-setup.sh` run away.
+
+```bash
+brew install age
+deploy/backup-secrets.sh          # from your laptop; age prompts for a passphrase
+#  -> ~/poac-secrets/poac-secrets-<UTC stamp>.tar.age
+deploy/restore-secrets.sh ~/poac-secrets/poac-secrets-….tar.age          # list contents
+deploy/restore-secrets.sh ~/poac-secrets/poac-secrets-….tar.age --to root@NEWHOST
+```
+
+The backup runs on your machine and streams an encrypted bundle over SSH;
+plaintext exists only in a mode-700 temp dir on the server (which already
+holds these files), removed on exit. The corpus is copied with SQLite's
+online backup, so it is consistent even while the verifier is serving. The
+passphrase is the real secret: put it in your password manager, never
+beside the bundle. `-r age1…` encrypts to an age public key instead
+(useful for automation; the matching identity then needs the same care).
+
+Restore onto a fresh host after `bootstrap-host.sh`: it stops the verifier,
+installs `.env`, copies the data files into the `poac-data` volume (moving
+any existing ones aside as `*.bak-<stamp>`), and starts the verifier. Take
+a bundle after every corpus change and after any `.env` edit.
+
 ## State
 
 Sessions and verify nonces are in-memory by default (single replica). For
