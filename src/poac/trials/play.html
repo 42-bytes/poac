@@ -400,7 +400,7 @@
 
   function speedChart(rows, caption) {
     if (!rows.length) return null;
-    const W = 640, LBL = 200, PADR = 150, RH = 26, PADT = 6;
+    const W = 640, LBL = 200, PADR = 190, RH = 26, PADT = 6;
     const H = PADT * 2 + rows.length * RH;
     const max = Math.max(...rows.map(r => r.ms)) * 1.05;
     const scale = (ms) => (W - LBL - PADR) * (ms / max);
