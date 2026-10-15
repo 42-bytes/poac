@@ -118,11 +118,16 @@ def test_stats_aggregate_by_family_and_mode(env):
     assert sum(v["n"] for v in fam.values()) == 2
     assert set(st["by_mode"]) == {"unaided", "relay"}
     assert st["by_mode"]["relay"]["answer_ms_p50"] == pytest.approx(9000, abs=5)
-    assert "agents" in st  # reference numbers for the comparison panel
-    # anonymous per-session mean answer time per mode, sorted, so the page can
-    # say where a player stands ("faster than 60% of unaided sessions")
-    assert st["session_avg_ms"]["unaided"] == [pytest.approx(4000, abs=5)]
-    assert st["session_avg_ms"]["relay"] == [pytest.approx(9000, abs=5)]
+    # reference numbers for the comparison chart: per model, per tier
+    agents = st["agents"]["solve_ms_p50"]
+    assert agents["GPT-5.5"]["C1"]["ms"] == 2883 and agents["GPT-5.5"]["C4"]["pass"] == 0.0
+    assert set(agents["Claude Opus 5.5"]) == {"C1", "C2", "C3", "C4", "C5"}
+    # humans grouped by tier/mode so the chart can show one level at a time
+    assert st["by_tier_and_mode"]["C1/relay"]["answer_ms_p50"] == pytest.approx(9000, abs=5)
+    # anonymous per-session mean answer time per mode and tier, sorted, so the
+    # page can say where a player stands ("faster than 60% of unaided C1 sessions")
+    assert st["session_avg_ms"]["unaided"]["C1"] == [pytest.approx(4000, abs=5)]
+    assert st["session_avg_ms"]["relay"]["C1"] == [pytest.approx(9000, abs=5)]
 
 
 def test_bad_input_is_4xx(env):

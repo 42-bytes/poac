@@ -9,13 +9,18 @@ import time
 from pathlib import Path
 from typing import Any
 
-# Frontier-agent per-round solve p50 at C1 against the 2026-10 corpus
-# (reports/bench-llm-*-C1-corpus.json). Shown next to human numbers.
-AGENT_REFERENCE_MS = {
-    "GPT-5.5": 2883,
-    "Gemini 4 Argon": 3132,
-    "Claude Opus 5.5": 4421,
-    "gpt-5-mini": 6029,
+# Frontier-agent per-round solve p50 (ms) and session pass rate per tier,
+# from reports/bench-llm-*-C{n}[-corpus].json (2026-10 corpus; C4/C5 are the
+# Lean proof tiers, not offered to humans). Shown next to human numbers.
+AGENT_REFERENCE: dict[str, dict[str, dict[str, float]]] = {
+    "GPT-5.5": {"C1": {"ms": 2883, "pass": 1.0}, "C2": {"ms": 3685, "pass": 1.0}, "C3": {"ms": 3504, "pass": 0.9},
+                "C4": {"ms": 12606, "pass": 0.0}, "C5": {"ms": 4384, "pass": 0.4}},
+    "Gemini 4 Argon": {"C1": {"ms": 3132, "pass": 1.0}, "C2": {"ms": 3682, "pass": 1.0}, "C3": {"ms": 4306, "pass": 1.0},
+                       "C4": {"ms": 2446, "pass": 1.0}, "C5": {"ms": 4249, "pass": 1.0}},
+    "Claude Opus 5.5": {"C1": {"ms": 4421, "pass": 1.0}, "C2": {"ms": 5202, "pass": 1.0}, "C3": {"ms": 5418, "pass": 1.0},
+                        "C4": {"ms": 7197, "pass": 1.0}, "C5": {"ms": 5501, "pass": 1.0}},
+    "gpt-5-mini": {"C1": {"ms": 6029, "pass": 1.0}, "C2": {"ms": 7701, "pass": 0.77}},
+    "Grok 4.7": {"C1": {"ms": 7171, "pass": 0.7}, "C2": {"ms": 8482, "pass": 0.3}, "C3": {"ms": 26254, "pass": 0.0}},
 }
 
 
@@ -85,15 +90,22 @@ class TrialLog:
                 out.setdefault(str(r.get(key)), []).append(r)
             return {k: agg(v) for k, v in sorted(out.items())}
 
-        # per-session mean answer time, by mode (anonymous; capped so the
-        # payload stays small as the log grows)
-        per_session: dict[str, dict[str, list[float]]] = {}
+        # per-session mean answer time, by mode and tier (anonymous; capped so
+        # the payload stays small as the log grows)
+        per_session: dict[str, dict[str, dict[str, list[float]]]] = {}
         for r in rounds:
-            per_session.setdefault(str(r.get("mode")), {}).setdefault(r["session_id"], []).append(r["answer_ms"])
+            (per_session.setdefault(str(r.get("mode")), {})
+             .setdefault(str(r.get("tier")), {})
+             .setdefault(r["session_id"], []).append(r["answer_ms"]))
         session_avg_ms = {
-            mode: sorted(round(sum(v) / len(v)) for v in by_sid.values())[-5000:]
-            for mode, by_sid in sorted(per_session.items())
+            mode: {tier: sorted(round(sum(v) / len(v)) for v in by_sid.values())[-5000:]
+                   for tier, by_sid in sorted(by_tier.items())}
+            for mode, by_tier in sorted(per_session.items())
         }
+
+        def pair_group(a: str, b: str) -> dict[str, Any]:
+            keys = sorted({f"{r[a]}/{r[b]}" for r in rounds})
+            return {k: agg([r for r in rounds if f"{r[a]}/{r[b]}" == k]) for k in keys}
 
         return {
             "sessions": len(sessions),
@@ -103,10 +115,8 @@ class TrialLog:
             "by_family": group("family"),
             "by_mode": group("mode"),
             "by_tier": group("tier"),
-            "by_family_and_mode": {
-                k: agg([r for r in rounds if f"{r['family']}/{r['mode']}" == k])
-                for k in sorted({f"{r['family']}/{r['mode']}" for r in rounds})
-            },
-            "agents": {"solve_ms_p50_at_C1": AGENT_REFERENCE_MS,
-                       "note": "frontier agents, one-shot, 2026-10 corpus"},
+            "by_family_and_mode": pair_group("family", "mode"),
+            "by_tier_and_mode": pair_group("tier", "mode"),
+            "agents": {"solve_ms_p50": AGENT_REFERENCE,
+                       "note": "frontier agents, one-shot per tier, 2026-10 corpus; ms = median per puzzle, pass = session pass rate"},
         }

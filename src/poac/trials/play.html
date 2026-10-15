@@ -43,6 +43,10 @@
   .big { font-size: 1.5rem; font-weight: 700; margin: .4rem 0; }
   .chart svg { width: 100%; height: auto; display: block; margin: .4rem 0 .2rem; font: 13px system-ui, sans-serif; }
   .chart .cap { font-size: .85rem; color: var(--mute); margin: 0 0 .6rem; }
+  .tiers { display: flex; gap: .35rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .tiers button { font: inherit; font-size: .85rem; padding: .25em .7em; border: 1px solid #ccc; border-radius: 999px; background: #fff; color: #333; cursor: pointer; }
+  .tiers button[aria-pressed="true"] { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .tiers button:disabled { opacity: .45; cursor: default; }
   .hidden { display: none; }
 </style>
 </head>
@@ -279,14 +283,19 @@
   });
 
   const LABEL = { timeout: 'too slow', wrong_answer: 'wrong answer', expired: 'session expired', protocol_violation: 'protocol error' };
-  let agents = {};
+  let agents = {};          // { model: { tier: { ms, pass } } }
   let lastStats = null;
-  const agentsText = () => Object.entries(agents).map(([k, v]) => `${k} ${fmtS(v)}`).join(', ');
+  const TIERS = ['C1', 'C2', 'C3', 'C4', 'C5'];
+  const TIER_NOTE = { C4: 'C4 asks for a machine-checked Lean proof — not offered to people here.',
+                      C5: 'C5 is the hardest proof tier — not offered to people here.' };
+  const agentsAt = (tier) => Object.fromEntries(Object.entries(agents).filter(([, t]) => t[tier]).map(([k, t]) => [k, t[tier]]));
+  const agentsText = (tier) => Object.entries(agentsAt(tier)).map(([k, v]) => `${k} ${fmtS(v.ms)}`).join(', ');
 
   // --- speed chart -------------------------------------------------------------------
-  // One horizontal bar per competitor, fastest first: each agent model in its
-  // own colour, people unaided, people relaying through a chatbot, and (after a
-  // session) you. Plain SVG built node by node.
+  // One horizontal bar per competitor at one level, fastest first: each agent
+  // model in its own colour (pass rate noted when it is not ~100%), people
+  // unaided, people relaying through a chatbot, and (after a session) you.
+  // A row of level buttons switches tier. Plain SVG built node by node.
   const SVG_NS = 'http://www.w3.org/2000/svg';
   function sv(tag, attrs, text) {
     const el = document.createElementNS(SVG_NS, tag);
@@ -307,14 +316,34 @@
   const HUMAN = { unaided: { label: 'People, unaided (median)', color: '#8a8a8a' },
                   relay: { label: 'People + chatbot (median)', color: '#b45309' } };
 
-  function speedRows(stats, mine) {
-    const rows = Object.entries(agents).map(([k, v]) => ({ label: k, ms: v, color: agentColor(k), kind: 'agent' }));
+  function speedRows(stats, mine, tier) {
+    const rows = Object.entries(agentsAt(tier)).map(([k, v]) => ({
+      label: k, ms: v.ms, color: agentColor(k), kind: 'agent',
+      note: v.pass < 0.95 ? `${Math.round(v.pass * 100)}% pass` : null }));
     for (const [mode, meta] of Object.entries(HUMAN)) {
-      const g = stats && stats.by_mode && stats.by_mode[mode];
-      if (g && g.answer_ms_p50 != null) rows.push({ label: `${meta.label}`, ms: g.answer_ms_p50, color: meta.color, kind: 'human', n: g.n });
+      const g = stats && stats.by_tier_and_mode && stats.by_tier_and_mode[`${tier}/${mode}`];
+      if (g && g.answer_ms_p50 != null) rows.push({ label: meta.label, ms: g.answer_ms_p50, color: meta.color, kind: 'human', n: g.n });
     }
-    if (mine != null) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided' });
+    if (mine != null && mine.tier === tier) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided' });
     return rows.sort((a, b) => a.ms - b.ms);
+  }
+
+  // Chart + level buttons; re-renders itself when a level is picked.
+  function tierChart(stats, mine, tier, caption) {
+    const box = h('div', { class: 'chart' });
+    const render = (t) => {
+      const btns = h('div', { class: 'tiers', role: 'group', 'aria-label': 'level' }, TIERS.map(x => {
+        const b = h('button', { type: 'button', 'aria-pressed': String(x === t) }, x);
+        if (!Object.keys(agentsAt(x)).length && !(stats && stats.by_tier && stats.by_tier[x])) b.disabled = true;
+        b.addEventListener('click', () => render(x));
+        return b;
+      }));
+      const rows = speedRows(stats, mine, t);
+      const cap = (typeof caption === 'function' ? caption(t) : caption) + (TIER_NOTE[t] ? ' ' + TIER_NOTE[t] : '');
+      replace(box, btns, speedChart(rows, cap) || h('p', { class: 'cap' }, `No measurements at ${t} yet.`));
+    };
+    render(tier);
+    return box;
   }
 
   function speedChart(rows, caption) {
@@ -330,24 +359,28 @@
       if (me) svg.append(sv('rect', { x: 0, y: y - 2, width: W, height: RH, fill: '#f5f5f2', rx: 4 }));
       svg.append(sv('text', { x: LBL - 10, y: y + RH / 2 + 4, 'text-anchor': 'end',
         'font-weight': me ? 700 : 500, fill: me ? '#1a1a1a' : '#333' }, r.label + (r.sub ? ` (${r.sub})` : '')));
-      svg.append(sv('rect', { x: LBL, y: y + 4, width: Math.max(2, scale(r.ms)), height: RH - 10, fill: r.color, rx: 3 }));
+      svg.append(sv('rect', { x: LBL, y: y + 4, width: Math.max(2, scale(r.ms)), height: RH - 10, fill: r.color, rx: 3,
+        'fill-opacity': r.note ? 0.45 : 1 }));
+      const extra = r.n ? ` · ${r.n} rounds` : r.note ? ` · ${r.note}` : '';
       svg.append(sv('text', { x: LBL + scale(r.ms) + 6, y: y + RH / 2 + 4, fill: '#333', 'font-weight': me ? 700 : 400,
-        'font-variant-numeric': 'tabular-nums' }, fmtS(r.ms) + (r.n ? ` · ${r.n} rounds` : '')));
+        'font-variant-numeric': 'tabular-nums' }, fmtS(r.ms) + extra));
     });
-    return h('div', { class: 'chart' }, svg, caption ? h('p', { class: 'cap' }, caption) : null);
+    return h('div', null, svg, caption ? h('p', { class: 'cap' }, caption) : null);
   }
 
-  // "Where you stand": share of same-mode human sessions you beat, and how many agents beat you.
+  // "Where you stand" at your level: share of same-mode human sessions you
+  // beat, and how many agents (measured at that level) beat you.
   function standing(stats, mine) {
-    const all = ((stats && stats.session_avg_ms) || {})[mine.mode] || [];
+    const all = (((stats && stats.session_avg_ms) || {})[mine.mode] || {})[mine.tier] || [];
     const others = all.slice(); const i = others.indexOf(Math.round(mine.ms)); if (i >= 0) others.splice(i, 1);
-    const agentsFaster = Object.values(agents).filter(v => v < mine.ms).length, nAgents = Object.keys(agents).length;
+    const at = Object.values(agentsAt(mine.tier));
+    const agentsFaster = at.filter(v => v.ms < mine.ms).length, nAgents = at.length;
     const parts = [];
     if (others.length) {
       const beat = others.filter(v => v > mine.ms).length;
-      parts.push(`faster than ${Math.round(100 * beat / others.length)}% of the ${others.length} other ${mine.mode} session${others.length === 1 ? '' : 's'}`);
-    } else parts.push(`the first ${mine.mode} session on record`);
-    parts.push(agentsFaster === 0 ? `faster than every agent we measured` :
+      parts.push(`faster than ${Math.round(100 * beat / others.length)}% of the ${others.length} other ${mine.mode} ${mine.tier} session${others.length === 1 ? '' : 's'}`);
+    } else parts.push(`the first ${mine.mode} ${mine.tier} session on record`);
+    if (nAgents) parts.push(agentsFaster === 0 ? `faster than every agent we measured at ${mine.tier}` :
       agentsFaster === nAgents ? `all ${nAgents} agents were faster` : `${agentsFaster} of ${nAgents} agents were faster`);
     return `Where you stand: ${parts.join('; ')}.`;
   }
@@ -368,12 +401,13 @@
         h('td', null, fmtS(r.budget)),
         h('td', { class: r.outcome === 'correct' ? 'ok' : 'bad' }, r.outcome === 'correct' ? 'correct' : (LABEL[r.outcome] || r.outcome)))));
     const mine = state.rounds.reduce((a, r) => a + r.ms, 0) / state.rounds.length;
-    replace($('agentsCmp'), 'Your average: ', h('strong', null, fmtS(mine)), ' per puzzle. Frontier agents on the same puzzles: ' + agentsText() + '.');
+    const cmpTier = agentsText(state.tier) ? state.tier : 'C1';   // C0 has no agent runs; show C1
+    replace($('agentsCmp'), 'Your average: ', h('strong', null, fmtS(mine)), ` per puzzle. Frontier agents at ${cmpTier}: ` + agentsText(cmpTier) + '.');
     clear($('myChart'));
     show('result');
     await loadStats();   // includes this session now
-    const me = { ms: mine, mode: state.mode };
-    replace($('myChart'), speedChart(speedRows(lastStats, me), standing(lastStats, me)));
+    const me = { ms: mine, mode: state.mode, tier: state.tier };
+    replace($('myChart'), tierChart(lastStats, me, cmpTier, (t) => t === state.tier ? standing(lastStats, me) : `Seconds per puzzle at ${t}, fastest first. You played ${state.tier}.`));
   }
   $('againBtn').addEventListener('click', () => $('startBtn').click());
   $('changeBtn').addEventListener('click', () => show('intro'));
@@ -390,16 +424,16 @@
     try {
       const s = await (await fetch('/play/api/stats')).json();
       lastStats = s;
-      agents = (s.agents || {}).solve_ms_p50_at_C1 || {};
+      agents = (s.agents || {}).solve_ms_p50 || {};
+      const cap = (t) => `Median seconds per puzzle at ${t}, fastest first. Agents measured one-shot on the same corpus; faded bars did not reliably pass.`;
       if (!s.rounds) {
-        replace($('stats'), h('p', null, 'No one has played yet. Be the first.'),
-          speedChart(speedRows(s, null), 'Seconds per puzzle at C1, agents only so far.'));
+        replace($('stats'), h('p', null, 'No one has played yet. Be the first.'), tierChart(s, null, 'C1', cap));
         return;
       }
       replace($('stats'),
         h('p', null, `${s.sessions} sessions, ${s.sessions_passed} passed, ${s.rounds} rounds answered.`),
-        speedChart(speedRows(s, null), 'Median seconds per puzzle, fastest first. Agents measured one-shot at C1 on the same corpus.'),
-        statsTable('By puzzle type', s.by_family), statsTable('By mode', s.by_mode));
+        tierChart(s, null, 'C1', cap),
+        statsTable('By puzzle type', s.by_family), statsTable('By level', s.by_tier), statsTable('By mode', s.by_mode));
     } catch { $('stats').textContent = 'stats unavailable'; }
   }
   loadStats();
