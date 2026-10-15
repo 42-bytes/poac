@@ -164,12 +164,18 @@ class LlmAgentClient:
         result = self._agent.run_sync(prompt)
         u = result.usage() if callable(result.usage) else result.usage
         cost = u.cost
+        if callable(cost):  # pydantic-ai ≥2.x exposes a method backed by genai-prices
+            try:
+                cost = cost().total_price
+            except Exception:
+                cost = None
         if cost is None and self.pricing:
             # list price × tokens; reasoning tokens are billed as completion tokens
             cost = (u.input_tokens or 0) * self.pricing[0] + (u.output_tokens or 0) * self.pricing[1]
         with self._usage_lock:
             self.usage.append({
-                "input_tokens": u.input_tokens, "output_tokens": u.output_tokens, "cost_usd": cost,
+                "input_tokens": u.input_tokens, "output_tokens": u.output_tokens,
+                "cost_usd": None if cost is None else float(cost),
             })
         return result.output.answer
 
