@@ -10,9 +10,13 @@
 # process is additionally capped via `lean --memory`, see
 # POAC_LEAN_MAX_MEMORY_MB).
 #
-# Egress: the verifier needs no outbound network. It sits on an internal
-# network and is reachable only through Caddy, which terminates TLS
-# (automatic Let's Encrypt certificate for POAC_PUBLIC_HOST).
+# Egress: the verifier sits on an internal (no-route) network and is
+# reachable only through Caddy, which terminates TLS (automatic Let's
+# Encrypt certificate for POAC_PUBLIC_HOST). Its single outbound path is
+# the `kms-egress` sidecar, a forward proxy that admits only
+# kms.<region>.amazonaws.com:443 so receipts can be signed in AWS KMS.
+# The Lean subprocess runs with a scrubbed environment (no proxy vars, no
+# AWS credentials).
 #
 # Persistent state lives in the `poac-data` volume: sessions + verify
 # nonces (state.sqlite3), the issuer key (issuer.jwk, created on first
@@ -37,6 +41,8 @@ services:
       POAC_KMS_REGION: ${POAC_KMS_REGION:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # the only route out: the kms-egress sidecar (boto3 honours HTTPS_PROXY)
+      HTTPS_PROXY: http://kms-egress:3128
     volumes:
       - poac-data:/data
     networks: [internal]
@@ -53,6 +59,29 @@ services:
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "5" }
+
+  # Allow-list egress for KMS only. Sits on both networks; admits
+  # CONNECT kms.<region>.amazonaws.com:443 and denies everything else.
+  kms-egress:
+    image: ubuntu/squid:latest
+    command: >
+      sh -c 'sed "s/__REGION__/$${POAC_KMS_REGION:-eu-north-1}/" /etc/squid/kms.conf.tpl > /tmp/squid.conf
+             && exec squid -N -f /tmp/squid.conf'
+    environment:
+      POAC_KMS_REGION: ${POAC_KMS_REGION:-eu-north-1}
+    volumes:
+      - ./deploy/kms-egress.squid.conf.tpl:/etc/squid/kms.conf.tpl:ro
+    networks: [internal, default]
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN]   # squid drops to its own user at start
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   proxy:
     image: caddy:2-alpine
