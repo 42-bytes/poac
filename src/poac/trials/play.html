@@ -322,15 +322,17 @@
                   relay: { label: 'People + chatbot (median)', color: '#b45309' } };
 
   // Each row carries a time (median seconds per correct answer) and a pass
-  // rate: agents = share of sessions passed; people = share of rounds right
-  // in time at that level; you = your rounds right in time this session.
+  // rate: agents = share of sessions passed (in time, by construction);
+  // people = share of rounds answered right at that level, late or not — the
+  // same rounds the time is computed over; flagged ", late" when none were in time.
   function speedRows(stats, mine, tier) {
     const rows = Object.entries(agentsAt(tier)).map(([k, v]) => ({ label: k, ms: v.ms, color: agentColor(k), kind: 'agent', pass: v.pass }));
     for (const [mode, meta] of Object.entries(HUMAN)) {
       const g = stats && stats.by_tier_and_mode && stats.by_tier_and_mode[`${tier}/${mode}`];
-      if (g && g.answer_ms_p50 != null) rows.push({ label: meta.label, ms: g.answer_ms_p50, color: meta.color, kind: 'human', n: g.n_timed, pass: g.correct_in_time_rate });
+      if (g && g.answer_ms_p50 != null) rows.push({ label: meta.label, ms: g.answer_ms_p50, color: meta.color, kind: 'human', n: g.n_timed,
+        pass: g.correct_if_untimed_rate, word: 'right', late: g.correct_in_time_rate === 0 });
     }
-    if (mine != null && mine.tier === tier) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided', pass: mine.pass });
+    if (mine != null && mine.tier === tier) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided', pass: mine.pass, word: 'right', late: mine.late });
     return rows.sort((a, b) => a.ms - b.ms);
   }
 
@@ -416,9 +418,9 @@
       svg.append(sv('rect', { x: LBL, y: y + 4, width: len, height: RH - 10, fill: '#d9d9d4', rx: 3 }));
       if (solid > 0) svg.append(sv('rect', { x: LBL, y: y + 4, width: Math.max(2, solid), height: RH - 10, fill: r.color, rx: 3 }));
       if (solid > 0 && pass < 1) svg.append(sv('rect', { x: LBL + Math.max(3, solid - 3), y: y + 4, width: 3, height: RH - 10, fill: r.color }));  // square inner edge
-      const passTxt = r.pass == null ? '' : ` · ${Math.round(r.pass * 100)}% pass`;
+      const passTxt = r.pass == null ? '' : ` · ${Math.round(r.pass * 100)}% ${r.word || 'pass'}`;
       svg.append(sv('text', { x: LBL + len + 6, y: y + RH / 2 + 4, fill: '#333', 'font-weight': me ? 700 : 400,
-        'font-variant-numeric': 'tabular-nums' }, fmtS(r.ms) + passTxt + (r.n ? ` · ${r.n} correct` : '')));
+        'font-variant-numeric': 'tabular-nums' }, fmtS(r.ms) + passTxt + (r.n ? ` · ${r.n} answer${r.n === 1 ? '' : 's'}${r.late ? ', late' : ''}` : '')));
     });
     return h('div', null, svg, caption ? h('p', { class: 'cap' }, caption) : null);
   }
@@ -465,7 +467,7 @@
     clear($('myChart'));
     show('result');
     await loadStats();   // includes this session now
-    const me = mine == null ? null : { ms: mine, mode: state.mode, tier: state.tier, pass: state.rounds.filter(r => r.outcome === 'correct').length / state.rounds.length };
+    const me = mine == null ? null : { ms: mine, mode: state.mode, tier: state.tier, pass: right.length / state.rounds.length, late: !state.rounds.some(r => r.outcome === 'correct') };
     replace($('myChart'), tierChart(lastStats, me, cmpTier, (t) => me && t === state.tier ? standing(lastStats, me) : `Seconds per puzzle at ${t}, fastest first. You played ${state.tier}.`),
       levelLines(lastStats, me));
   }
@@ -492,7 +494,7 @@
       const s = await (await fetch('/play/api/stats')).json();
       lastStats = s;
       agents = (s.agents || {}).solve_ms_p50 || {};
-      const cap = (t) => `Median seconds per correct answer at ${t}, fastest first. Bar length is time; the solid part of each bar is the pass rate, the grey rest the failures (agents: sessions passed; people: rounds right in time). Wrong answers do not count as times.`;
+      const cap = (t) => `Median seconds per correct answer at ${t}, fastest first. Bar length is time; the solid part of each bar is the success share, the grey rest the failures (agents: sessions passed; people: answers right, late or not). Wrong answers do not count as times.`;
       if (!s.rounds) {
         replace($('stats'), h('p', null, 'No one has played yet. Be the first.'), tierChart(s, null, 'C1', cap), levelLines(s, null));
         return;
