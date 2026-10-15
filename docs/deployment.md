@@ -143,6 +143,21 @@ installs `.env`, copies the data files into the `poac-data` volume (moving
 any existing ones aside as `*.bak-<stamp>`), and starts the verifier. Take
 a bundle after every corpus change and after any `.env` edit.
 
+## Package integrity
+
+Source lives at `github.com/42-bytes/poac`. CI (`.github/workflows/ci.yml`)
+runs the tests on 3.12/3.13, builds the wheel and sdist, and scans the
+full git history with gitleaks (`.gitleaks.toml` allowlists two known
+false positives). Releases (`release.yml`) fire on a `v*` tag and publish
+to PyPI through Trusted Publishing — GitHub's OIDC token is exchanged for
+a short-lived upload token, so no PyPI credential exists anywhere — with
+Sigstore attestations attached (PEP 740). The GitHub environment `pypi`
+gates the publish job; add required reviewers there if more than one
+person can tag.
+
+Release: bump `version` in `pyproject.toml`, commit, `git tag vX.Y.Z &&
+git push --tags`. Consumers verify provenance with `pypi-attestations`.
+
 ## State
 
 Sessions and verify nonces are in-memory by default (single replica). For

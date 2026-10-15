@@ -16,7 +16,7 @@
 # next to the bundle. Restore with deploy/restore-secrets.sh.
 set -euo pipefail
 
-HOST="${POAC_HOST:-root@37.27.146.243}"
+HOST="${POAC_HOST:-root@poac.42bytes.eu}"
 SSH_KEY="${POAC_SSH_KEY:-$HOME/.ssh/poac_hetzner}"
 OUT_DIR="${POAC_BACKUP_DIR:-$HOME/poac-secrets}"
 RECIPIENT=""

@@ -1,0 +1,14 @@
+# gitleaks config: default rules plus allowlists for known false positives.
+# CI runs `gitleaks git` over the full history; a real leak fails the build.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "KMS key-spec string literals and empty example env values are not secrets"
+regexes = [
+  '''ECC_NIST_EDWARDS25519''',
+  '''ML_DSA_65''',
+]
+paths = [
+  '''deploy/env\.example''',
+]

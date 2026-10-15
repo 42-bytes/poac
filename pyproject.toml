@@ -18,6 +18,12 @@ dependencies = [
     "httpx>=0.27",
 ]
 
+[project.urls]
+Homepage = "https://poac.42bytes.eu"
+Source = "https://github.com/42-bytes/poac"
+Issues = "https://github.com/42-bytes/poac/issues"
+Security = "https://github.com/42-bytes/poac/security/policy"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 # LLM-authored private corpus + LLM agent benchmark client
