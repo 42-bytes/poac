@@ -10,6 +10,7 @@
 #   data/issuer.jwk          local Ed25519 issuer key (private); absent once retired
 #   data/corpus.sqlite       private challenge corpus — consistent SQLite snapshot
 #   data/human-trials.jsonl  human-trial log (not secret, but irreplaceable)
+#   data/previous-keys.json  retiring public keys still published in the JWKS
 #
 # Output: ~/poac-secrets/poac-secrets-<UTC stamp>.tar.age (dir chmod 700).
 # THE PASSPHRASE IS THE REAL SECRET: keep it in your password manager, not
@@ -44,7 +45,7 @@ if os.path.exists(\"/data/corpus.sqlite\"):
     dst = sqlite3.connect(\"/tmp/bundle/data/corpus.sqlite\")
     src.backup(dst); dst.close(); src.close()
 PY
-  for f in issuer.jwk human-trials.jsonl; do [ -f /data/\$f ] && cp -p /data/\$f /tmp/bundle/data/ || true; done
+  for f in issuer.jwk previous-keys.json human-trials.jsonl; do [ -f /data/\$f ] && cp -p /data/\$f /tmp/bundle/data/ || true; done
   tar -C /tmp/bundle -cf - data; rm -rf /tmp/bundle
 " | tar -C "$W" -xf -
 cp -p .env "$W/env"

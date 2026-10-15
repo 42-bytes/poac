@@ -41,9 +41,11 @@ DNS: only `poac.42bytes.eu` is delegated to a Route 53 hosted zone (NS
 records at the parent, which stays on Cloudflare). Route 53 failover
 records point the name at the primary while its health check (HTTPS by IP,
 SNI and Host set to the public name, path `/.well-known/jwks.json`, 30 s
-interval, 2 failures) passes, and at the secondary otherwise. TTL 60 s, so
-a flip propagates in roughly 1–2 minutes. `a.` and `b.` sub-names resolve
-directly to each node for drills. Cloudflare's proxy is deliberately not
+interval, 2 failures) passes, and at the secondary otherwise. TTL 60 s;
+in the 2026-10-15 drill the flip took 106 s and the flip back 75 s. `a.`
+and `b.` sub-names resolve directly to each node (DNS only — the
+certificate covers the public name, so test a node with `curl --resolve
+poac.42bytes.eu:443:<ip> https://poac.42bytes.eu/...`). Cloudflare's proxy is deliberately not
 used: its bot protection would challenge the agents the verifier exists to
 serve.
 
@@ -54,14 +56,22 @@ PRIMARY_IP=37.27.146.243 deploy/aws-failover-setup.sh   # Lightsail, zone, healt
 ```
 
 It prints the `POAC_DNS_*` values for `.env` (once) and the four NS records
-to add at the parent. Then on the secondary:
+to add at the parent. Lightsail imports only RSA SSH keys, so the script
+installs the ed25519 key through instance user data; the $5 nano bundle
+has 512 MB and is too small, hence `micro_3_0` (1 GB, $7). Then on the
+secondary:
 
 ```bash
-deploy/bootstrap-host.sh                         # as root (sudo -i on Lightsail)
-deploy/restore-secrets.sh ~/poac-secrets/<bundle>.tar.age --to ubuntu@<ip>   # same .env, corpus, trials log
-# append POAC_DNS_* and POAC_LEAN_MAX_MEMORY_MB=512 to /opt/poac/.env on a 1 GB box
+sudo bash deploy/bootstrap-host.sh               # hardening + docker
+# node-local values, appended to .env by restore-secrets: POAC_DNS_*,
+# POAC_VERIFIER_MEM=768m, POAC_VERIFIER_CPUS=1.0, POAC_LEAN_MAX_MEMORY_MB=512
+install -m 600 /dev/null /opt/poac/.env.local && $EDITOR /opt/poac/.env.local
+deploy/restore-secrets.sh ~/poac-secrets/<bundle>.tar.age --to ubuntu@<ip>   # from your machine
 docker compose pull && docker compose up -d
 ```
+
+The GHCR packages must be public (org setting "Package creation → Public",
+then each package's visibility) or every node needs a registry login.
 
 Nightly from the primary, `deploy/sync-secondary.sh ubuntu@<ip>` copies a
 consistent corpus snapshot (exposure counters) and the human-trials log so

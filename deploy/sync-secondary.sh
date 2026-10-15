@@ -17,12 +17,13 @@ if os.path.exists("/data/corpus.sqlite"):
     src = sqlite3.connect("/data/corpus.sqlite"); dst = sqlite3.connect("/tmp/corpus-sync.sqlite")
     src.backup(dst); dst.close(); src.close()
 PY
-  tar -C / -cf - tmp/corpus-sync.sqlite data/human-trials.jsonl 2>/dev/null; rm -f /tmp/corpus-sync.sqlite' \
+  tar -C / -cf - tmp/corpus-sync.sqlite data/human-trials.jsonl data/previous-keys.json 2>/dev/null; rm -f /tmp/corpus-sync.sqlite' \
   | tar -C "$W" -xf -
 # into the secondary's volume, via its own verifier container (same uid), without stopping it
 tar -C "$W" -cf - . | ssh -i "$SSH_KEY" "$TARGET" 'cd /opt/poac && T=$(mktemp -d) && tar -C "$T" -xf - && \
   sudo docker run --rm -v poac_poac-data:/data -v "$T:/src:ro" alpine sh -ec "
     [ -f /src/tmp/corpus-sync.sqlite ] && cp /src/tmp/corpus-sync.sqlite /data/corpus.sqlite.sync && mv /data/corpus.sqlite.sync /data/corpus.sqlite && rm -f /data/corpus.sqlite-wal /data/corpus.sqlite-shm
     [ -f /src/data/human-trials.jsonl ] && cp /src/data/human-trials.jsonl /data/human-trials.jsonl
-    chown 10001:10001 /data/corpus.sqlite /data/human-trials.jsonl 2>/dev/null || true" && rm -rf "$T"'
+    [ -f /src/data/previous-keys.json ] && cp /src/data/previous-keys.json /data/previous-keys.json
+    chown 10001:10001 /data/corpus.sqlite /data/human-trials.jsonl /data/previous-keys.json 2>/dev/null || true" && rm -rf "$T"'
 echo "synced corpus snapshot + trials log to $TARGET at $(date -u +%FT%TZ)"

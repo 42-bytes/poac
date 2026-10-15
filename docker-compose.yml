@@ -58,8 +58,9 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 256
-    mem_limit: 2g
-    cpus: "2.0"
+    # per-node caps; small nodes set these in .env (e.g. 640m / POAC_LEAN_MAX_MEMORY_MB=512)
+    mem_limit: ${POAC_VERIFIER_MEM:-2g}
+    cpus: "${POAC_VERIFIER_CPUS:-2.0}"
     restart: unless-stopped
     logging:
       driver: json-file
