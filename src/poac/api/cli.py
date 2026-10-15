@@ -93,6 +93,8 @@ def build_app(args: argparse.Namespace):
                 server_secret=secret,
                 lean_bin=find_lean(),
                 source=source,
+                kernel_slots=args.kernel_slots,
+                max_kernel_sessions=args.max_kernel_sessions,
             )
             issuer = orchestrator._issuer
     else:
@@ -111,6 +113,8 @@ def build_app(args: argparse.Namespace):
             lean_bin=find_lean(),
             store=SqliteSessionStore(args.state_db),
             source=source,
+            kernel_slots=args.kernel_slots,
+            max_kernel_sessions=args.max_kernel_sessions,
         )
         nonce_store = SqliteNonceStore(args.state_db)
 
@@ -158,6 +162,15 @@ def main(argv: list[str] | None = None) -> None:
         help="AWS KMS Ed25519 key ARN/alias to sign receipts with (needs poac[kms] and "
              "AWS credentials; POAC_KMS_REGION). The local key file, if any, becomes a "
              "previous key in the JWKS.",
+    )
+    parser.add_argument(
+        "--kernel-slots", type=int, default=int(os.environ.get("POAC_KERNEL_SLOTS", "2")),
+        help="max concurrent Lean kernel checks (each a process of up to POAC_LEAN_MAX_MEMORY_MB); "
+             "use 1 on 1 GB nodes",
+    )
+    parser.add_argument(
+        "--max-kernel-sessions", type=int, default=int(os.environ.get("POAC_MAX_KERNEL_SESSIONS", "8")),
+        help="max simultaneously active C4/C5 sessions; beyond it session creation answers 503",
     )
     parser.add_argument(
         "--previous-keys-file",

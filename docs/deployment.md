@@ -95,7 +95,14 @@ outer:
    `elan`, so nothing can fetch or switch toolchains;
 4. container: non-root, `cap_drop: ALL`, `no-new-privileges`, read-only
    root, bounded tmpfs, `pids_limit`, `mem_limit`;
-5. network: internal-only; the verifier initiates no outbound connections.
+5. network: internal-only; the verifier initiates no outbound connections
+   (except KMS, through the allow-listed egress proxy);
+6. concurrency: at most `POAC_KERNEL_SLOTS` Lean processes at once
+   (default 2; use 1 on a 1 GB node, since each may take
+   `POAC_LEAN_MAX_MEMORY_MB`) and at most `POAC_MAX_KERNEL_SESSIONS` active
+   C4/C5 sessions (default 8; further session creations get 503 +
+   `Retry-After`). Waiting for a slot is not charged to the prover — the
+   round clock stops when the submission arrives.
 
 For stricter egress isolation run kernel checks in a separate worker
 container on a `--network none` network, fed over a shared volume. That

@@ -135,7 +135,8 @@ def create_app(
             return orchestrator.create_session(body.tier, body.holder_jwk, body.receipt_format)
         except SessionError as exc:
             status = 400 if "receipt format" in exc.message else 503
-            raise HTTPException(status, exc.message) from exc
+            headers = {"Retry-After": "10"} if "retry later" in exc.message else None
+            raise HTTPException(status, exc.message, headers=headers) from exc
 
     @app.post("/v1/sessions/{session_id}/rounds/{round_index}")
     def submit_round(

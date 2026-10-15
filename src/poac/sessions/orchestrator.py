@@ -21,11 +21,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+import threading
 import time
 from typing import Callable
 
 from poac.challenges.base import answers_match
-from poac.challenges.proof_check import check_proof
+from poac.challenges.proof_check import ProofCheckResult, check_proof
 from poac.challenges.source import ChallengeSource, TemplateSource
 from poac.credentials.issuer import ReceiptIssuer
 from poac.credentials.signer import SignerError
@@ -73,6 +74,8 @@ class Orchestrator:
         lean_bin: str | None = None,
         store: SessionStore | None = None,
         source: ChallengeSource | None = None,
+        kernel_slots: int = 2,
+        max_kernel_sessions: int = 8,
     ):
         self._issuer = issuer
         self._secret = server_secret or secrets.token_bytes(32)
@@ -81,6 +84,27 @@ class Orchestrator:
         self._source: ChallengeSource = source or TemplateSource()
         self._max_sessions = max_sessions
         self._lean_bin = lean_bin
+        # Kernel checks are the expensive resource (a Lean process, up to
+        # hundreds of MB, 20 s). Two caps keep a C4/C5 flood from taking the
+        # node down: at most `max_kernel_sessions` kernel-tier sessions may be
+        # active at once (admission), and at most `kernel_slots` Lean
+        # processes run concurrently (a semaphore; waiting time is not
+        # charged to the prover, whose clock stopped at arrival).
+        self._kernel_slots = max(1, kernel_slots)
+        self._kernel_sem = threading.BoundedSemaphore(self._kernel_slots)
+        self._kernel_waiting = 0
+        self._kernel_lock = threading.Lock()
+        self._max_kernel_sessions = max_kernel_sessions
+
+    @property
+    def kernel_slots(self) -> int:
+        return self._kernel_slots
+
+    @property
+    def kernel_queue_depth(self) -> int:
+        """Submissions currently waiting for a Lean slot (ops signal)."""
+        with self._kernel_lock:
+            return self._kernel_waiting
 
     @property
     def lean_bin(self) -> str | None:
@@ -194,6 +218,10 @@ class Orchestrator:
             self._store.sweep(self._clock())
             if self._store.count() >= self._max_sessions:
                 raise SessionError("session capacity exceeded, retry later")
+            if tier_requires_kernel(TIERS[tier]) and (
+                self._store.count_kernel_active() >= self._max_kernel_sessions
+            ):
+                raise SessionError("kernel tiers busy, retry later")
             session = Session(
                 session_id=secrets.token_urlsafe(18),
                 tier=tier,
@@ -259,14 +287,22 @@ class Orchestrator:
                 )
                 return self._finalize(session, state, elapsed_ms, correct)
 
-        # --- kernel validation, outside the transaction ---
+        # --- kernel validation, outside the transaction, bounded concurrency ---
         try:
-            result = check_proof(
-                self._lean_bin,
-                preamble=state.payload.preamble,
-                proposition=state.payload.proposition,
-                submission=answer,
-            )
+            with self._kernel_lock:
+                self._kernel_waiting += 1
+            self._kernel_sem.acquire()
+            with self._kernel_lock:
+                self._kernel_waiting -= 1
+            try:
+                result = check_proof(
+                    self._lean_bin,
+                    preamble=state.payload.preamble,
+                    proposition=state.payload.proposition,
+                    submission=answer,
+                )
+            finally:
+                self._kernel_sem.release()
         except Exception as exc:  # toolchain missing/crashed, OS error, ...
             with self._store.transaction():
                 session = self._store.get(session_id)

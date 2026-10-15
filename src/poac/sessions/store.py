@@ -20,6 +20,7 @@ import threading
 from contextlib import contextmanager
 from typing import Iterator, Protocol
 
+from poac.sessions.config import TIERS, tier_requires_kernel
 from poac.sessions.state import Session, session_from_dict, session_to_dict
 
 
@@ -29,6 +30,9 @@ class SessionStore(Protocol):
     def put(self, session: Session) -> None: ...
     def delete(self, session_id: str) -> None: ...
     def count(self) -> int: ...
+    def count_kernel_active(self) -> int:
+        """Active sessions in a tier that needs the Lean kernel (C4/C5)."""
+        ...
     def sweep(self, now: float) -> int:
         """Drop sessions whose ``expires_at`` <= now; return how many."""
 
@@ -54,6 +58,10 @@ class InMemorySessionStore:
 
     def count(self) -> int:
         return len(self._sessions)
+
+    def count_kernel_active(self) -> int:
+        return sum(1 for s in self._sessions.values()
+                   if s.status == "active" and tier_requires_kernel(s.config))
 
     def sweep(self, now: float) -> int:
         stale = [sid for sid, s in self._sessions.items() if s.expires_at <= now]
@@ -112,6 +120,14 @@ class SqliteSessionStore:
 
     def count(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+
+    def count_kernel_active(self) -> int:
+        tiers = [t.value for t, cfg in TIERS.items() if tier_requires_kernel(cfg)]
+        marks = ",".join("?" for _ in tiers)
+        return self._conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE json_extract(data, '$.status') = 'active'"
+            f" AND json_extract(data, '$.tier') IN ({marks})", tiers,
+        ).fetchone()[0]
 
     def sweep(self, now: float) -> int:
         cur = self._conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))

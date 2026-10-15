@@ -36,6 +36,8 @@ services:
     environment:
       POAC_SERVER_SECRET: ${POAC_SERVER_SECRET:?set POAC_SERVER_SECRET in .env}
       POAC_LEAN_MAX_MEMORY_MB: ${POAC_LEAN_MAX_MEMORY_MB:-1024}
+      POAC_KERNEL_SLOTS: ${POAC_KERNEL_SLOTS:-2}
+      POAC_MAX_KERNEL_SESSIONS: ${POAC_MAX_KERNEL_SESSIONS:-8}
       POAC_CORPUS_DB: ${POAC_CORPUS_DB:-}
       POAC_TRIALS_LOG: ${POAC_TRIALS_LOG:-/data/human-trials.jsonl}
       # issuer key in AWS KMS (deploy/aws-kms-setup.sh); empty = local key file

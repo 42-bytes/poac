@@ -68,7 +68,7 @@ are consumed):
 | Oversized/malformed payloads | P7 | strict schemas, unknown fields rejected, body size caps |
 | Malicious Lean submission (elaboration-time code execution, FFI, metaprogramming) | P3/P5 | forbidden-token screen before compilation (`sorry`, `axiom`, `macro`, `elab`, `import`, `#` commands, `unsafe`, `extern`, `native_decide`, attributes, `IO.`/`Lean.`/`System.` namespaces); time-limited subprocess with minimal env; container isolation additionally required for production (L7) |
 | `sorry`/axiom smuggling in a proof | P3/P5 | axiom audit: `#print axioms poac_target` must report a subset of Lean's three standard axioms — catches `sorry` (exit code 0!) and any obfuscated `sorryAx` route |
-| Kernel-check DoS (slow-to-elaborate submissions) | P7 | hard subprocess timeout (20 s) outside the orchestrator lock; C4 sessions rate-limited like all others |
+| Kernel-check DoS (slow-to-elaborate submissions, C4/C5 floods) | P7 | hard subprocess timeout (20 s) and memory cap per check; at most `POAC_KERNEL_SLOTS` concurrent Lean processes (semaphore) and `POAC_MAX_KERNEL_SESSIONS` active kernel-tier sessions (admission 503); rate limits as for all sessions |
 
 ## 5. Known prototype limitations (carry into the gate report)
 
