@@ -100,7 +100,6 @@ services:
     build: deploy/caddy
     environment:
       POAC_PUBLIC_HOST: ${POAC_PUBLIC_HOST}
-      POAC_ACME_EMAIL: ${POAC_ACME_EMAIL:-}
       POAC_DNS_ZONE_ID: ${POAC_DNS_ZONE_ID:?set POAC_DNS_ZONE_ID in .env}
       AWS_REGION: ${POAC_KMS_REGION:-eu-north-1}
       # the DNS-01 user (route53 on that one zone); NOT the KMS signer

@@ -2,10 +2,6 @@
 # Route 53 zone that holds POAC_PUBLIC_HOST, using the scoped `poac-dns01`
 # IAM user (deploy/aws-failover-setup.sh). Env: POAC_PUBLIC_HOST,
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, POAC_DNS_ZONE_ID.
-{
-	email {$POAC_ACME_EMAIL:""}
-}
-
 {$POAC_PUBLIC_HOST} {
 	tls {
 		dns route53 {
