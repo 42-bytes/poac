@@ -67,10 +67,12 @@
 
     <label for="tier">Level</label>
     <select id="tier">
+      <option value="C0">C0 — 1 round, 60 s (warm-up)</option>
       <option value="C1" selected>C1 — 3 rounds, 20 s each (reading, data, logic)</option>
       <option value="C2">C2 — 4 rounds, 20 s each (+ code, diagram)</option>
       <option value="C3">C3 — 6 rounds, 15 s each, bigger puzzles</option>
-      <option value="C0">C0 — 1 round, 60 s (warm-up)</option>
+      <option value="C4">C4 — 3 rounds, 40 s each, Lean proofs (paste a proof term)</option>
+      <option value="C5">C5 — 6 rounds, 30 s each, everything incl. a Lean proof</option>
     </select>
 
     <div class="note">The clock is the server's, it starts the moment a puzzle appears, and it keeps counting if you run over. <strong>Please do submit late answers</strong> — we want to know how long it really takes and whether you'd have been right.</div>
@@ -285,9 +287,9 @@
   const LABEL = { timeout: 'too slow', wrong_answer: 'wrong answer', expired: 'session expired', protocol_violation: 'protocol error' };
   let agents = {};          // { model: { tier: { ms, pass } } }
   let lastStats = null;
-  const TIERS = ['C1', 'C2', 'C3', 'C4', 'C5'];
-  const TIER_NOTE = { C4: 'C4 asks for a machine-checked Lean proof — not offered to people here.',
-                      C5: 'C5 is the hardest proof tier — not offered to people here.' };
+  const TIERS = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5'];   // C0 has human data only; its button enables once someone plays it
+  const TIER_NOTE = { C4: 'C4 asks for a machine-checked Lean proof each round.',
+                      C5: 'C5 mixes every puzzle type, including a Lean proof.' };
   const agentsAt = (tier) => Object.fromEntries(Object.entries(agents).filter(([, t]) => t[tier]).map(([k, t]) => [k, t[tier]]));
   const agentsText = (tier) => Object.entries(agentsAt(tier)).map(([k, v]) => `${k} ${fmtS(v.ms)}`).join(', ');
 
