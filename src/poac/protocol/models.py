@@ -62,6 +62,9 @@ class HolderJwk(StrictModel):
 class SessionCreateRequest(StrictModel):
     tier: CapabilityTier
     holder_jwk: HolderJwk | None = None
+    # "compact" = Ed25519 compact JWS (default); "json-dual" = JWS JSON
+    # serialisation signed with Ed25519 AND ML-DSA-65 (post-quantum).
+    receipt_format: Literal["compact", "json-dual"] = "compact"
 
 
 # --- challenge payloads (discriminated on `family`) -----------------------
@@ -199,10 +202,11 @@ class VerifyNonceResponse(StrictModel):
 
 
 class PresentationRequest(StrictModel):
-    receipt: str = Field(max_length=8_192)
+    receipt: str = Field(max_length=16_384)  # json-dual receipts carry a 3309-byte ML-DSA signature
     kb_jwt: str = Field(max_length=4_096)
     audience: str = Field(max_length=512)
     nonce: str = Field(max_length=128)
+    require_pq: bool = False  # demand a valid ML-DSA-65 signature too
 
 
 class PresentationResult(StrictModel):
@@ -213,6 +217,7 @@ class PresentationResult(StrictModel):
     holder_thumbprint: str | None = None
     issued_at: int | None = None
     expires_at: int | None = None
+    signature_algs: list[str] | None = None  # e.g. ["Ed25519"] or ["Ed25519", "ML-DSA-65"]
 
 
 # --- discovery manifest -----------------------------------------------------
@@ -235,5 +240,6 @@ class CapabilityManifest(StrictModel):
     verify_endpoint: str
     jwks_uri: str
     openapi_url: str
+    receipt_formats: list[str] = ["compact"]
     tiers: list[TierSpec]
     honest_claims: str

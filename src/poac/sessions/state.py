@@ -40,6 +40,7 @@ class Session:
     families: list[str] = field(default_factory=list)
     latencies_ms: list[int] = field(default_factory=list)
     prev_answer_hash: bytes = b"\x00" * 32
+    receipt_format: str = "compact"
 
     @property
     def identity_tier(self) -> IdentityTier:
@@ -63,6 +64,7 @@ def session_to_dict(s: Session) -> dict:
         "families": list(s.families),
         "latencies_ms": list(s.latencies_ms),
         "prev_answer_hash": s.prev_answer_hash.hex(),
+        "receipt_format": s.receipt_format,
         "round_state": None
         if rs is None
         else {
@@ -102,6 +104,7 @@ def session_from_dict(d: dict) -> Session:
         status=d["status"],
         current_round=d["current_round"],
         round_state=round_state,
+        receipt_format=d.get("receipt_format", "compact"),
         families=list(d["families"]),
         latencies_ms=list(d["latencies_ms"]),
         prev_answer_hash=bytes.fromhex(d["prev_answer_hash"]),

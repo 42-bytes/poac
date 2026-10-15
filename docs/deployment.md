@@ -55,6 +55,12 @@ or delete the key. If KMS is unreachable a passed session returns 503
 ("receipt signing unavailable") — never an unsigned or locally-signed
 receipt.
 
+`POAC_KMS_MLDSA65_KEY` (the setup script creates this `ML_DSA_65` key too)
+additionally enables dual-signed receipts: holders that ask for
+`receipt_format: "json-dual"` get Ed25519 + ML-DSA-65 signatures, one
+`kms:Sign` each, and the ML-DSA public key is published in the JWKS as an
+`AKP` JWK. Compact Ed25519 remains the default; see protocol.md §6.1.
+
 The verifier container has no route to the internet. Its only way out is
 the `kms-egress` sidecar in `docker-compose.yml`: a Squid forward proxy
 (`deploy/kms-egress.squid.conf.tpl`) on both networks that admits

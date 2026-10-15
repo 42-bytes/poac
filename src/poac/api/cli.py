@@ -44,16 +44,21 @@ def build_app(args: argparse.Namespace):
         # public half stays in the JWKS so receipts issued before the switch
         # keep verifying until they expire (5 min); the private part is no
         # longer used for anything.
-        from poac.credentials.signer import KmsSigner
+        from poac.credentials.signer import KmsMlDsaSigner, KmsSigner
 
+        region = os.environ.get("POAC_KMS_REGION")
         previous = []
         if args.issuer_key_file and Path(args.issuer_key_file).exists():
             previous.append(_load_or_create_issuer_key(Path(args.issuer_key_file)).as_dict(private=False))
-        signer = KmsSigner(kms_key, region=os.environ.get("POAC_KMS_REGION"))
-        issuer = ReceiptIssuer(signer, issuer_url=args.base_url, previous_keys=previous)
+        signer = KmsSigner(kms_key, region=region)
+        pq = KmsMlDsaSigner(args.kms_pq_key, region=region) if args.kms_pq_key else None
+        issuer = ReceiptIssuer(signer, issuer_url=args.base_url, previous_keys=previous, pq_signer=pq)
         print(f"issuer key: AWS KMS {kms_key} (kid {signer.kid})"
+              + (f"; PQ key: AWS KMS {args.kms_pq_key} (kid {pq.kid}); json-dual receipts offered" if pq else "")
               + (f"; publishing {len(previous)} previous key(s)" if previous else ""), file=sys.stderr)
     elif args.issuer_key_file:
+        if args.kms_pq_key:
+            sys.exit("--kms-pq-key requires --kms-key (the Ed25519 key must be in KMS too)")
         issuer = ReceiptIssuer(
             _load_or_create_issuer_key(Path(args.issuer_key_file)),
             issuer_url=args.base_url,
@@ -147,6 +152,12 @@ def main(argv: list[str] | None = None) -> None:
         help="AWS KMS Ed25519 key ARN/alias to sign receipts with (needs poac[kms] and "
              "AWS credentials; POAC_KMS_REGION). The local key file, if any, becomes a "
              "previous key in the JWKS.",
+    )
+    parser.add_argument(
+        "--kms-pq-key",
+        default=os.environ.get("POAC_KMS_MLDSA65_KEY"),
+        help="AWS KMS ML-DSA-65 key ARN/alias; enables dual-signed (Ed25519 + ML-DSA-65) "
+             "receipts on request (receipt_format=json-dual). Requires --kms-key.",
     )
     parser.add_argument(
         "--trials-log",

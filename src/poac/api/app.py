@@ -132,9 +132,10 @@ def create_app(
         if not limiter.allow(client):
             raise HTTPException(429, "rate limit exceeded")
         try:
-            return orchestrator.create_session(body.tier, body.holder_jwk)
+            return orchestrator.create_session(body.tier, body.holder_jwk, body.receipt_format)
         except SessionError as exc:
-            raise HTTPException(503, exc.message) from exc
+            status = 400 if "receipt format" in exc.message else 503
+            raise HTTPException(status, exc.message) from exc
 
     @app.post("/v1/sessions/{session_id}/rounds/{round_index}")
     def submit_round(
@@ -177,6 +178,7 @@ def create_app(
             nonce=body.nonce,
             issuer_jwks=issuer.jwks(),
             expected_issuer=issuer.issuer_url,
+            require_pq=body.require_pq,
         )
 
     # --- discovery -----------------------------------------------------------
@@ -192,7 +194,8 @@ def create_app(
     @app.get(CAPABILITY_MANIFEST_PATH, include_in_schema=False)
     def capability_manifest():
         return build_manifest(
-            issuer.issuer_url, include_kernel_tiers=kernel_tiers_enabled
+            issuer.issuer_url, include_kernel_tiers=kernel_tiers_enabled,
+            receipt_formats=issuer.receipt_formats,
         ).model_dump()
 
     @app.get("/.well-known/jwks.json", include_in_schema=False)

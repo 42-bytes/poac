@@ -100,7 +100,7 @@ class HolderKey:
 
 @dataclass(frozen=True)
 class Receipt:
-    token: str  # compact JWS, pass this around
+    token: str  # the receipt as issued (compact JWS, or JSON for json-dual); pass it around verbatim
     tier: str
     identity_tier: str
     families: list[str]
@@ -120,26 +120,34 @@ class Receipt:
         return (now or time.time()) >= self.expires_at
 
 
+def _b64json(segment: str) -> dict[str, Any]:
+    segment += "=" * (-len(segment) % 4)
+    return json.loads(base64.urlsafe_b64decode(segment))
+
+
 def _unverified_claims(jws: str) -> dict[str, Any]:
-    payload = jws.split(".")[1]
-    payload += "=" * (-len(payload) % 4)
-    return json.loads(base64.urlsafe_b64decode(payload))
+    """Payload of a compact JWS, or of a JWS JSON serialisation (``json-dual``
+    receipts start with ``{``). Not verified — informational."""
+    if jws.startswith("{"):
+        return _b64json(json.loads(jws)["payload"])
+    return _b64json(jws.split(".")[1])
 
 
-def _unverified_header(jws: str) -> dict[str, Any]:
-    header = jws.split(".")[0]
-    header += "=" * (-len(header) % 4)
-    return json.loads(base64.urlsafe_b64decode(header))
+def _unverified_headers(jws: str) -> list[dict[str, Any]]:
+    if jws.startswith("{"):
+        return [_b64json(s["protected"]) for s in json.loads(jws)["signatures"]]
+    return [_b64json(jws.split(".")[0])]
 
 
-def receipt_issuer(receipt: str) -> tuple[str | None, str | None]:
-    """``(iss, kid)`` of a receipt, read without verification — for pinning
-    checks *after* the verifier has validated the signature. ``(None, None)``
+def receipt_issuer(receipt: str) -> tuple[str | None, list[str]]:
+    """``(iss, kids)`` of a receipt, read without verification — for pinning
+    checks *after* the verifier has validated the signature(s). ``(None, [])``
     if the token is malformed."""
     try:
-        return _unverified_claims(receipt).get("iss"), _unverified_header(receipt).get("kid")
+        return (_unverified_claims(receipt).get("iss"),
+                [h.get("kid") for h in _unverified_headers(receipt)])
     except Exception:  # noqa: BLE001
-        return None, None
+        return None, []
 
 
 def kb_nonce(kb_jwt: str) -> str | None:
@@ -184,8 +192,12 @@ class PoacClient:
 
     # --- earning -------------------------------------------------------------------
 
-    def start(self, tier: str, bind_key: bool = True) -> SessionCreatedResponse:
+    def start(
+        self, tier: str, bind_key: bool = True, receipt_format: str = "compact"
+    ) -> SessionCreatedResponse:
         body: dict[str, Any] = {"tier": tier}
+        if receipt_format != "compact":
+            body["receipt_format"] = receipt_format
         if bind_key:
             body["holder_jwk"] = self.key.jwk.model_dump(exclude_none=True)
         r = self._http.post("/v1/sessions", json=body)
@@ -208,10 +220,13 @@ class PoacClient:
         solver: Solver,
         bind_key: bool = True,
         on_round: Callable[[RoundChallenge, str, float], None] | None = None,
+        receipt_format: str = "compact",
     ) -> Receipt:
         """Play a full session. ``on_round(round, answer, solve_seconds)`` is
-        called after each submission (for logging/benchmarks)."""
-        created = self.start(tier, bind_key=bind_key)
+        called after each submission (for logging/benchmarks).
+        ``receipt_format="json-dual"`` asks for an Ed25519 + ML-DSA-65
+        dual-signed receipt (post-quantum); the verifier must offer it."""
+        created = self.start(tier, bind_key=bind_key, receipt_format=receipt_format)
         rnd = created.round
         families: list[str] = []
         while True:
@@ -258,15 +273,17 @@ class PoacClient:
         audience: str,
         nonce: str,
         expected_issuer: str | None = None,
+        require_pq: bool = False,
     ) -> dict[str, Any]:
         """Ask the verifier to check a presentation. With ``expected_issuer``
         the receipt's ``iss`` must also equal it — pin this to the verifier
-        you trust so a receipt minted elsewhere is refused locally."""
+        you trust so a receipt minted elsewhere is refused locally.
+        ``require_pq`` demands a valid ML-DSA-65 signature on the receipt."""
         token = receipt.token if isinstance(receipt, Receipt) else receipt
-        r = self._http.post(
-            "/v1/verify",
-            json={"receipt": token, "kb_jwt": kb_jwt, "audience": audience, "nonce": nonce},
-        )
+        body: dict[str, Any] = {"receipt": token, "kb_jwt": kb_jwt, "audience": audience, "nonce": nonce}
+        if require_pq:
+            body["require_pq"] = True
+        r = self._http.post("/v1/verify", json=body)
         if r.status_code != 200:
             raise PoacError(f"POST /v1/verify -> {r.status_code}: {r.text[:300]}")
         result = r.json()

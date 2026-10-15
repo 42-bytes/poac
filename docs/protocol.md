@@ -192,6 +192,20 @@ A compact JWS (EdDSA/Ed25519) signed by the issuer key published at
 `cnf` is present only for I1+. Claims are **measured facts** — no verdicts
 like "is_ai".
 
+**Serialisations.** The default receipt is a compact JWS, header
+`{"alg":"Ed25519","typ":"poac+jwt","kid":…}`, so any JWT library verifies
+it. A holder may instead request `receipt_format: "json-dual"` when starting
+the session (offered when the verifier's manifest lists it): the same claims
+in the JWS general JSON serialisation (RFC 7515 §7.2.1) with two signatures
+over the same payload, Ed25519 and **ML-DSA-65** (RFC 9964; JWK
+`kty: "AKP"`, published in the same JWKS). This is post-quantum readiness,
+not a composite algorithm: verifiers require the Ed25519 signature always,
+require every signature present to verify, and let a relying party demand
+the ML-DSA-65 one (`require_pq`) so the two can be rolled over
+independently. A `json-dual` receipt is passed around verbatim as a string
+(it starts with `{`); `receipt_hash` is taken over that string. Signatures
+are 64 B (Ed25519) and 3309 B (ML-DSA-65), so dual receipts are ~5 KB.
+
 ### 6.2 Presentation (holder → relying platform)
 
 The verifier issues the `nonce`: the holder (or the relying platform on its
@@ -208,8 +222,10 @@ and are responsible for its freshness.
 Verification (`credentials/presentation.py`) requires, in order: issuer
 signature and `exp`; `cnf.jkt` equals the thumbprint of the KB-JWT signing
 key; KB `aud`/`nonce` match the verifier's values; `receipt_hash` matches;
-KB `iat` within skew. Any failure is a hard reject. Only `EdDSA` is
-accepted for both signatures (no algorithm negotiation).
+KB `iat` within skew. Any failure is a hard reject. The KB-JWT accepts
+only `Ed25519`; the receipt accepts `Ed25519` plus, in `json-dual` form,
+`ML-DSA-65` (no other algorithm, no negotiation). The result reports
+`signature_algs` so a relying party can log which assurance it got.
 
 Relying platforms integrate through `poac.rp.PoacGate` (FastAPI
 dependency: nonce proxy at `/poac/nonce`, `Authorization: PoAC <receipt>`

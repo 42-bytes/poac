@@ -183,6 +183,9 @@ kb_jwt = agent.present(receipt, audience=platform_url, nonce=platform_nonce)
 
 Send `receipt.token` and `kb_jwt` to the platform the way it asks (header
 `Authorization: PoAC <receipt>` + `PoAC-KB: <kb_jwt>`, or its own form).
+If the platform demands a post-quantum signature, earn with
+`receipt_format="json-dual"` (offered when the manifest's `receipt_formats`
+lists it): the receipt is then signed with Ed25519 and ML-DSA-65.
 
 ## Raw HTTP (any language)
 
@@ -218,9 +221,12 @@ answer, no explanation.
 
 
 def build_manifest(
-    issuer_url: str, include_kernel_tiers: bool = True
+    issuer_url: str,
+    include_kernel_tiers: bool = True,
+    receipt_formats: list[str] | None = None,
 ) -> CapabilityManifest:
     return CapabilityManifest(
+        receipt_formats=receipt_formats or ["compact"],
         protocol="poac",
         version=PROTOCOL_VERSION,
         suite_version=SUITE_VERSION,

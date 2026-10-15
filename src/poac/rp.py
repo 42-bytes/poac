@@ -70,7 +70,10 @@ class PoacGate:
         nonce_path: str = "/poac/nonce",
         http: httpx.Client | None = None,
         timeout: float = 10.0,
+        require_pq: bool = False,
     ):
+        """``require_pq`` accepts only receipts that also carry a valid
+        ML-DSA-65 signature (agents must earn with ``receipt_format="json-dual"``)."""
         CapabilityTier(min_tier)
         IdentityTier(min_identity_tier)
         self.verifier_url = verifier_url.rstrip("/")
@@ -78,6 +81,7 @@ class PoacGate:
         self.min_tier = min_tier
         self.min_identity_tier = min_identity_tier
         self.nonce_path = nonce_path
+        self.require_pq = require_pq
         self._http = http or httpx.Client(base_url=self.verifier_url, timeout=timeout)
         self._kids: frozenset[str] | None = None   # pinned verifier's JWKS kids, lazily cached
         self.router = APIRouter()
@@ -97,22 +101,22 @@ class PoacGate:
 
     # --- issuer pinning ----------------------------------------------------------------
 
-    def _known_kid(self, kid: str | None) -> bool:
-        if not kid:
+    def _known_kids(self, kids: list[str | None]) -> bool:
+        if not kids or any(not k for k in kids):
             return False
-        if self._kids is None or kid not in self._kids:
+        if self._kids is None or not set(kids) <= self._kids:
             r = self._http.get("/.well-known/jwks.json")
             if r.status_code != 200:
                 raise HTTPException(503, "PoAC verifier JWKS unavailable")
             self._kids = frozenset(k.get("kid") for k in r.json().get("keys", []))
-        return kid in self._kids
+        return set(kids) <= self._kids
 
     def _check_pinned_issuer(self, receipt: str) -> None:
-        iss, kid = receipt_issuer(receipt)
+        iss, kids = receipt_issuer(receipt)
         if iss != self.verifier_url:
             raise self._challenge(f"PoAC receipt issuer mismatch: {iss!r} is not the pinned verifier")
-        if not self._known_kid(kid):
-            raise self._challenge(f"PoAC receipt signed with unknown signing key {kid!r}")
+        if not self._known_kids(kids):
+            raise self._challenge(f"PoAC receipt signed with unknown signing key {kids!r}")
 
     # --- the dependency -----------------------------------------------------------------
 
@@ -136,6 +140,7 @@ class PoacGate:
             raise self._challenge("key-binding JWT is malformed or lacks a nonce")
         r = self._http.post("/v1/verify", json={
             "receipt": receipt, "kb_jwt": kb_jwt, "audience": self.audience, "nonce": nonce,
+            "require_pq": self.require_pq,
         })
         if r.status_code != 200:
             raise HTTPException(503, "PoAC verifier unavailable")

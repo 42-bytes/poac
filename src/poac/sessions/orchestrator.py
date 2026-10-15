@@ -164,8 +164,16 @@ class Orchestrator:
     # --- public API --------------------------------------------------------
 
     def create_session(
-        self, tier: CapabilityTier, holder_jwk: HolderJwk | None
+        self,
+        tier: CapabilityTier,
+        holder_jwk: HolderJwk | None,
+        receipt_format: str = "compact",
     ) -> SessionCreatedResponse:
+        if receipt_format not in self._issuer.receipt_formats:
+            raise SessionError(
+                f"receipt format {receipt_format!r} unavailable here; offered: "
+                + ", ".join(self._issuer.receipt_formats)
+            )
         if tier_requires_kernel(TIERS[tier]) and self._lean_bin is None:
             raise SessionError(
                 f"tier {tier.value} unavailable: this verifier has no Lean toolchain"
@@ -180,6 +188,7 @@ class Orchestrator:
                 config=TIERS[tier],
                 holder_jwk=holder_jwk,
                 created_at=self._clock(),
+                receipt_format=receipt_format,
             )
             first_round = self._issue_round(session)
             self._store.put(session)
@@ -301,6 +310,7 @@ class Orchestrator:
                 rounds_total=session.config.rounds,
                 receipt_ttl_s=session.config.receipt_ttl_s,
                 holder_jwk=session.holder_jwk,
+                receipt_format=session.receipt_format,  # type: ignore[arg-type]
             )
         except SignerError as exc:
             # The prover passed; the signing backend (e.g. KMS) is down. No

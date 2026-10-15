@@ -12,15 +12,18 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import time
 from typing import Callable
 
+from cryptography.exceptions import InvalidSignature
 from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import KeySet, OKPKey
 from joserfc.jws import JWSRegistry
 
 from poac.credentials.issuer import ALLOWED_ALG, EDDSA_REGISTRY, RECEIPT_TYP
+from poac.credentials.signer import ALG_ED25519, ALG_MLDSA65, mldsa65_public_key
 from poac.protocol.models import (
     CapabilityTier,
     IdentityTier,
@@ -64,6 +67,70 @@ def _reject(reason: str) -> PresentationResult:
     return PresentationResult(valid=False, reason=reason)
 
 
+def _b64d(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def _decode_receipt(receipt: str, issuer_jwks: dict) -> tuple[dict, list[str]] | str:
+    """Verify every signature on a receipt (compact or JSON general
+    serialisation) against the issuer JWKS. Returns ``(claims, algs)`` or a
+    rejection reason. Policy: Ed25519 is always required; an ML-DSA-65
+    signature, when present, must also verify; nothing else is accepted."""
+    if not receipt.startswith("{"):
+        try:
+            keyset = KeySet.import_key_set(issuer_jwks)
+            decoded = jwt.decode(receipt, keyset, registry=_REGISTRY)
+        except (JoseError, ValueError) as exc:
+            return f"receipt signature invalid: {exc.__class__.__name__}"
+        if decoded.header.get("typ") != RECEIPT_TYP:
+            return "receipt typ mismatch"
+        return decoded.claims, [ALG_ED25519]
+
+    try:
+        obj = json.loads(receipt)
+        payload: str = obj["payload"]
+        sigs: list = obj["signatures"]
+        if not isinstance(payload, str) or not isinstance(sigs, list) or not 1 <= len(sigs) <= 2:
+            raise ValueError
+        claims = json.loads(_b64d(payload))
+        if not isinstance(claims, dict):
+            raise ValueError
+    except (KeyError, TypeError, ValueError):
+        return "receipt json serialisation malformed"
+    keys_by_kid = {k.get("kid"): k for k in issuer_jwks.get("keys", [])}
+    algs: list[str] = []
+    for sig in sigs:
+        try:
+            protected, signature = sig["protected"], sig["signature"]
+            header = json.loads(_b64d(protected))
+            raw_sig = _b64d(signature)
+        except (KeyError, TypeError, ValueError):
+            return "receipt signature entry malformed"
+        if header.get("typ") != RECEIPT_TYP:
+            return "receipt typ mismatch"
+        if "crit" in header or sig.get("header"):
+            return "receipt header has unsupported members"
+        alg, jwk = header.get("alg"), keys_by_kid.get(header.get("kid"))
+        if alg in algs:
+            return "receipt has duplicate signature algorithms"
+        if jwk is None:
+            return "receipt signature invalid: unknown kid"
+        signing_input = f"{protected}.{payload}".encode("ascii")
+        try:
+            if alg == ALG_ED25519 and jwk.get("kty") == "OKP" and jwk.get("crv") == "Ed25519":
+                OKPKey.import_key(jwk).public_key.verify(raw_sig, signing_input)
+            elif alg == ALG_MLDSA65 and jwk.get("kty") == "AKP":
+                mldsa65_public_key(jwk).verify(raw_sig, signing_input)
+            else:
+                return f"receipt signature invalid: alg {alg!r} not accepted"
+        except (InvalidSignature, ValueError, JoseError):
+            return f"receipt signature invalid: {alg}"
+        algs.append(alg)
+    if ALG_ED25519 not in algs:
+        return "receipt lacks the Ed25519 signature"
+    return claims, algs
+
+
 def verify_presentation(
     receipt: str,
     kb_jwt: str,
@@ -72,23 +139,24 @@ def verify_presentation(
     issuer_jwks: dict,
     now: Callable[[], int] | None = None,
     expected_issuer: str | None = None,
+    require_pq: bool = False,
 ) -> PresentationResult:
     """Full verification chain; any failure is a hard reject with a reason.
 
     ``expected_issuer`` pins the receipt's ``iss`` claim (exact string match):
     a verifier passes its own issuer URL so a receipt from any other issuer
-    — even one whose key somehow made it into the JWKS — is refused."""
+    — even one whose key somehow made it into the JWKS — is refused.
+    ``require_pq`` additionally demands a valid ML-DSA-65 signature (only
+    ``json-dual`` receipts carry one)."""
     now_fn = now or (lambda: int(time.time()))
 
-    # 1. issuer signature (EdDSA only) and pinned typ
-    try:
-        keyset = KeySet.import_key_set(issuer_jwks)
-        decoded = jwt.decode(receipt, keyset, registry=_REGISTRY)
-    except (JoseError, ValueError) as exc:
-        return _reject(f"receipt signature invalid: {exc.__class__.__name__}")
-    if decoded.header.get("typ") != RECEIPT_TYP:
-        return _reject("receipt typ mismatch")
-    claims = decoded.claims
+    # 1. issuer signature(s) and pinned typ
+    decoded = _decode_receipt(receipt, issuer_jwks)
+    if isinstance(decoded, str):
+        return _reject(decoded)
+    claims, algs = decoded
+    if require_pq and ALG_MLDSA65 not in algs:
+        return _reject("receipt lacks the required ML-DSA-65 signature")
     if expected_issuer is not None and claims.get("iss") != expected_issuer:
         return _reject("receipt issuer mismatch")
 
@@ -147,4 +215,5 @@ def verify_presentation(
         holder_thumbprint=jkt,
         issued_at=iat,
         expires_at=exp,
+        signature_algs=algs,
     )
