@@ -19,8 +19,8 @@
 # AWS credentials).
 #
 # Persistent state lives in the `poac-data` volume: sessions + verify
-# nonces (state.sqlite3), the issuer key (issuer.jwk, created on first
-# start) and, when present, the private corpus (corpus.sqlite).
+# nonces (state.sqlite3), the private corpus (corpus.sqlite) and, only when
+# not signing in KMS, the issuer key file named by POAC_ISSUER_KEY_ARGS.
 
 services:
   verifier:
@@ -30,7 +30,7 @@ services:
       poac-verifier
       --base-url https://${POAC_PUBLIC_HOST:?set POAC_PUBLIC_HOST in .env}
       --state-db /data/state.sqlite3
-      --issuer-key-file /data/issuer.jwk
+      ${POAC_ISSUER_KEY_ARGS:-}
     environment:
       POAC_SERVER_SECRET: ${POAC_SERVER_SECRET:?set POAC_SERVER_SECRET in .env}
       POAC_LEAN_MAX_MEMORY_MB: ${POAC_LEAN_MAX_MEMORY_MB:-1024}
