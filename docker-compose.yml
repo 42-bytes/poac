@@ -64,9 +64,11 @@ services:
   # CONNECT kms.<region>.amazonaws.com:443 and denies everything else.
   kms-egress:
     image: ubuntu/squid:latest
-    command: >
-      sh -c 'sed "s/__REGION__/$${POAC_KMS_REGION:-eu-north-1}/" /etc/squid/kms.conf.tpl > /tmp/squid.conf
-             && exec squid -N -f /tmp/squid.conf'
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        sed "s/__REGION__/$${POAC_KMS_REGION:-eu-north-1}/" /etc/squid/kms.conf.tpl > /tmp/squid.conf
+        && exec squid -N -f /tmp/squid.conf
     environment:
       POAC_KMS_REGION: ${POAC_KMS_REGION:-eu-north-1}
     volumes:
