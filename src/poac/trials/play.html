@@ -44,7 +44,7 @@
   .chart svg { width: 100%; height: auto; display: block; margin: .4rem 0 .2rem; font: 13px system-ui, sans-serif; }
   .chart .cap { font-size: .85rem; color: var(--mute); margin: 0 0 .6rem; }
   .cap { font-size: .85rem; color: var(--mute); }
-  .tiers { display: flex; gap: .35rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .tiers { display: flex; gap: .35rem; flex-wrap: wrap; align-items: center; margin: .6rem 0 0; }
   .tiers button { font: inherit; font-size: .85rem; padding: .25em .7em; border: 1px solid #ccc; border-radius: 999px; background: #fff; color: #333; cursor: pointer; }
   .tiers button[aria-pressed="true"] { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   .tiers button:disabled { opacity: .45; cursor: default; }
@@ -344,12 +344,17 @@
         pass: g.correct_if_untimed_rate, word: 'right', late: g.correct_in_time_rate === 0 });
     }
     if (mine != null && mine.tier === tier) rows.push({ label: 'You', ms: mine.ms, color: '#1a1a1a', kind: 'me', sub: mine.mode === 'relay' ? 'relay' : 'unaided', pass: mine.pass, word: 'right', late: mine.late });
-    return rows.sort((a, b) => a.ms - b.ms);
+    return rows;
   }
+  const SORTS = {
+    time: { label: 'fastest first', fn: (a, b) => a.ms - b.ms },
+    accuracy: { label: 'most accurate first', fn: (a, b) => ((b.pass ?? 1) - (a.pass ?? 1)) || (a.ms - b.ms) },
+  };
 
   // Chart + level buttons; re-renders itself when a level is picked.
   function tierChart(stats, mine, tier, caption) {
     const box = h('div', { class: 'chart' });
+    let sortKey = 'time';
     const render = (t) => {
       const btns = h('div', { class: 'tiers', role: 'group', 'aria-label': 'level' }, TIERS.map(x => {
         const b = h('button', { type: 'button', 'aria-pressed': String(x === t) }, x);
@@ -357,9 +362,15 @@
         b.addEventListener('click', () => render(x));
         return b;
       }));
-      const rows = speedRows(stats, mine, t);
+      btns.append(h('span', { class: 'cap', style: 'margin-left:auto' }, 'sort: '), ...Object.entries(SORTS).map(([k, v]) => {
+        const b = h('button', { type: 'button', 'aria-pressed': String(k === sortKey) }, k);
+        b.title = v.label;
+        b.addEventListener('click', () => { sortKey = k; render(t); });
+        return b;
+      }));
+      const rows = speedRows(stats, mine, t).sort(SORTS[sortKey].fn);
       const cap = (typeof caption === 'function' ? caption(t) : caption) + (TIER_NOTE[t] ? ' ' + TIER_NOTE[t] : '');
-      replace(box, btns, speedChart(rows, cap) || h('p', { class: 'cap' }, `No measurements at ${t} yet.`));
+      replace(box, btns, speedChart(rows, cap, SORTS[sortKey].label) || h('p', { class: 'cap' }, `No measurements at ${t} yet.`));
     };
     render(tier);
     return box;
@@ -411,13 +422,13 @@
       h('p', { class: 'cap' }, 'All levels at once: median seconds per correct answer. Hollow markers: the agent passed fewer than 95% of its sessions at that level. People are dashed.'));
   }
 
-  function speedChart(rows, caption) {
+  function speedChart(rows, caption, order = 'fastest first') {
     if (!rows.length) return null;
     const W = 640, LBL = 200, PADR = 190, RH = 26, PADT = 6;
     const H = PADT * 2 + rows.length * RH;
     const max = Math.max(...rows.map(r => r.ms)) * 1.05;
     const scale = (ms) => (W - LBL - PADR) * (ms / max);
-    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'seconds per correct answer (bar length) and pass rate (solid share of the bar), fastest first' });
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `seconds per correct answer (bar length) and success share (solid part of the bar), ${order}` });
     rows.forEach((r, i) => {
       const y = PADT + i * RH;
       const me = r.kind === 'me';
@@ -479,7 +490,7 @@
     show('result');
     await loadStats();   // includes this session now
     const me = mine == null ? null : { ms: mine, mode: state.mode, tier: state.tier, pass: right.length / state.rounds.length, late: !state.rounds.some(r => r.outcome === 'correct') };
-    replace($('myChart'), tierChart(lastStats, me, cmpTier, (t) => me && t === state.tier ? standing(lastStats, me) : `Seconds per puzzle at ${t}, fastest first. You played ${state.tier}.`),
+    replace($('myChart'), tierChart(lastStats, me, cmpTier, (t) => me && t === state.tier ? standing(lastStats, me) : `Seconds per puzzle at ${t}. You played ${state.tier}.`),
       levelLines(lastStats, me));
   }
   // Round verdict: correctness first, then speed. "too slow — right" is a data point we want.
@@ -552,7 +563,7 @@
       const s = await (await fetch('/play/api/stats')).json();
       lastStats = s;
       agents = (s.agents || {}).solve_ms_p50 || {};
-      const cap = (t) => `Median seconds per correct answer at ${t}, fastest first. Bar length is time; the solid part of each bar is the success share, the grey rest the failures (agents: sessions passed; people: answers right, late or not). Wrong answers do not count as times.`;
+      const cap = (t) => `Bar length = median seconds per correct answer at ${t}. The solid part of the bar is the share of attempts that succeeded, the grey part the share that failed — wrong, or not answered in time (agents: whole sessions; people: single answers, right late or not). Failed attempts are never counted as times.`;
       if (!s.rounds) {
         replace($('stats'), h('p', null, 'No one has played yet. Be the first.'), tierChart(s, null, 'C1', cap), levelLines(s, null));
         return;

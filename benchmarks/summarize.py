@@ -21,6 +21,9 @@ OUT = Path(__file__).resolve().parents[1] / "src" / "poac" / "trials" / "agent_r
 
 # OpenRouter id → label shown to people. Unknown ids fall back to the id.
 LABELS = {
+    "openai:gpt-6-astra": "GPT-6 Astra",
+    "openai:gpt-6.1-sol": "GPT-6.1 Sol",
+    "openai:gpt-6-luna": "GPT-6 Luna",
     "openai/gpt-5.6-sol": "GPT-5.6 Sol",
     "openai/gpt-5.6-luna": "GPT-5.6 Luna",
     "openai/gpt-5.6-terra": "GPT-5.6 Terra",
@@ -43,7 +46,7 @@ _FILE = re.compile(r"^bench-llm-(?P<model>.+)-(?P<tier>C[0-5])(?:-corpus)?\.json
 def _model_id(tag: str) -> str:
     """Report filename tag back to an OpenRouter id (first '-' is the '/')."""
     for mid in LABELS:
-        if re.sub(r"[^A-Za-z0-9.]+", "-", mid) == tag:
+        if re.sub(r"[^A-Za-z0-9.]+", "-", mid.split(":", 1)[-1]) == tag:
             return mid
     return tag
 

@@ -1,0 +1,42 @@
+{
+  "client": "llm:openai:gpt-6-astra",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C1",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 10,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.7225,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 1917.12,
+    "p95": 3509.66,
+    "p99": 3787.51
+  },
+  "session_latency_ms": {
+    "p50": 5688.18,
+    "p95": 7844.97,
+    "p99": 7844.97
+  },
+  "mean_session_ms": 6072.13,
+  "wall_clock_s": 60.72,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 13418,
+    "output_tokens": 1081,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.18823,
+    "cost_usd_per_session": 0.018823,
+    "cost_usd_per_receipt": 0.018823
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-gpt-6-astra.sqlite",
+    "rounds_served": 30,
+    "template_fallbacks": {}
+  }
+}
