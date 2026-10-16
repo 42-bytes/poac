@@ -1,0 +1,44 @@
+{
+  "client": "llm:openai:gpt-6-luna",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C2",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 9,
+  "pass_rate": 0.9,
+  "pass_rate_wilson95": [
+    0.5958,
+    0.9821
+  ],
+  "failure_classes": {
+    "wrong_answer": 1
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 1927.35,
+    "p95": 4504.95,
+    "p99": 5251.15
+  },
+  "session_latency_ms": {
+    "p50": 8549.93,
+    "p95": 10152.12,
+    "p99": 10152.12
+  },
+  "mean_session_ms": 8138.33,
+  "wall_clock_s": 81.38,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 21139,
+    "output_tokens": 5209,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.004718,
+    "cost_usd_per_session": 0.000472,
+    "cost_usd_per_receipt": 0.000524
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-gpt-6-luna.sqlite",
+    "rounds_served": 23,
+    "template_fallbacks": {}
+  }
+}

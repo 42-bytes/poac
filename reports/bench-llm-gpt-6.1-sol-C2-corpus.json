@@ -1,0 +1,42 @@
+{
+  "client": "llm:openai:gpt-6.1-sol",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C2",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 10,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.7225,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 1954.3,
+    "p95": 5517.83,
+    "p99": 6916.34
+  },
+  "session_latency_ms": {
+    "p50": 9168.0,
+    "p95": 12968.0,
+    "p99": 12968.0
+  },
+  "mean_session_ms": 9705.02,
+  "wall_clock_s": 97.05,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 24770,
+    "output_tokens": 2004,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.06958,
+    "cost_usd_per_session": 0.006958,
+    "cost_usd_per_receipt": 0.006958
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-gpt-6.1-sol.sqlite",
+    "rounds_served": 26,
+    "template_fallbacks": {}
+  }
+}
