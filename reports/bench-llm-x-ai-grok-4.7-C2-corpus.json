@@ -1,0 +1,47 @@
+{
+  "client": "llm:openrouter:x-ai/grok-4.7",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C2",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 1,
+  "pass_rate": 0.1,
+  "pass_rate_wilson95": [
+    0.0179,
+    0.4042
+  ],
+  "failure_classes": {
+    "expired": 1,
+    "timeout": 8
+  },
+  "client_error_rounds": 3,
+  "client_errors_sample": [
+    "UnexpectedModelBehavior: Exceeded maximum output retries (1)"
+  ],
+  "solve_latency_ms": {
+    "p50": 16506.36,
+    "p95": 73047.03,
+    "p99": 95315.19
+  },
+  "session_latency_ms": {
+    "p50": 50176.32,
+    "p95": 95327.26,
+    "p99": 95327.26
+  },
+  "mean_session_ms": 57269.61,
+  "wall_clock_s": 572.7,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 41987,
+    "output_tokens": 24401,
+    "sessions_with_cost": 8,
+    "cost_usd_total": 0.23038,
+    "cost_usd_per_session": 0.023038,
+    "cost_usd_per_receipt": 0.23038
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-x-ai-grok-4.7.sqlite",
+    "rounds_served": 9,
+    "template_fallbacks": {}
+  }
+}

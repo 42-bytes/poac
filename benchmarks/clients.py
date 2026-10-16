@@ -150,17 +150,22 @@ class LlmAgentClient:
             answer: str
 
         from pydantic_ai import PromptedOutput
+        from pydantic_ai.settings import ModelSettings
 
+        # a hung provider call must not stall the harness: no round budget
+        # exceeds 60 s, so anything past 90 s is a lost round anyway
+        settings = ModelSettings(timeout=90.0)
         self.name = f"llm:{model}"
         instructions = (
             "You are completing a timed machine-capability challenge. "
             "Read the task and return ONLY the requested short answer in "
             "the `answer` field. No explanation."
         )
-        self._agent = Agent(model, output_type=Answer, instructions=instructions)
+        self._agent = Agent(model, output_type=Answer, instructions=instructions, model_settings=settings)
         # Some providers (Qwen in thinking mode) reject forced tool calls; fall
         # back to schema-in-prompt output for the rest of the run.
-        self._prompted = Agent(model, output_type=PromptedOutput(Answer), instructions=instructions)
+        self._prompted = Agent(model, output_type=PromptedOutput(Answer), instructions=instructions,
+                               model_settings=settings)
         self._use_prompted = False
 
         self.model = model

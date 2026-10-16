@@ -23,6 +23,7 @@ OUT = Path(__file__).resolve().parents[1] / "src" / "poac" / "trials" / "agent_r
 LABELS = {
     "openai/gpt-5.6-sol": "GPT-5.6 Sol",
     "openai/gpt-5.6-luna": "GPT-5.6 Luna",
+    "openai/gpt-5.6-terra": "GPT-5.6 Terra",
     "openai/gpt-5.5": "GPT-5.5",
     "openai/gpt-5-mini": "gpt-5-mini",
     "anthropic/claude-opus-5.5": "Claude Opus 5.5",

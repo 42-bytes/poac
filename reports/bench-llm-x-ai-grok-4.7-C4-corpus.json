@@ -1,0 +1,45 @@
+{
+  "client": "llm:openrouter:x-ai/grok-4.7",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C4",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.2775
+  ],
+  "failure_classes": {
+    "expired": 3,
+    "timeout": 7
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 89457.11,
+    "p95": 222057.25,
+    "p99": 222057.25
+  },
+  "session_latency_ms": {
+    "p50": 89464.21,
+    "p95": 222063.03,
+    "p99": 222063.03
+  },
+  "mean_session_ms": 110639.76,
+  "wall_clock_s": 1106.4,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 15830,
+    "output_tokens": 88350,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.56176,
+    "cost_usd_per_session": 0.056176,
+    "cost_usd_per_receipt": null
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-x-ai-grok-4.7.sqlite",
+    "rounds_served": 0,
+    "template_fallbacks": {}
+  }
+}
