@@ -1,0 +1,44 @@
+{
+  "client": "llm:openrouter:minimax/minimax-m3",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C4",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.2775
+  ],
+  "failure_classes": {
+    "wrong_answer": 10
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 1154.31,
+    "p95": 1944.54,
+    "p99": 1944.54
+  },
+  "session_latency_ms": {
+    "p50": 1808.43,
+    "p95": 2796.53,
+    "p99": 2796.53
+  },
+  "mean_session_ms": 1807.62,
+  "wall_clock_s": 18.08,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 6908,
+    "output_tokens": 829,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.002391,
+    "cost_usd_per_session": 0.000239,
+    "cost_usd_per_receipt": null
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-minimax-minimax-m3.sqlite",
+    "rounds_served": 0,
+    "template_fallbacks": {}
+  }
+}

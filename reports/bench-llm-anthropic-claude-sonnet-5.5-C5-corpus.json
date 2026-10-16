@@ -1,0 +1,42 @@
+{
+  "client": "llm:openrouter:anthropic/claude-sonnet-5.5",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C5",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 10,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.7225,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 3062.18,
+    "p95": 7536.35,
+    "p99": 7756.76
+  },
+  "session_latency_ms": {
+    "p50": 21200.55,
+    "p95": 24880.58,
+    "p99": 24880.58
+  },
+  "mean_session_ms": 20696.91,
+  "wall_clock_s": 206.97,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 62650,
+    "output_tokens": 10899,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.23429,
+    "cost_usd_per_session": 0.023429,
+    "cost_usd_per_receipt": 0.023429
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-anthropic-claude-sonnet-5.5.sqlite",
+    "rounds_served": 30,
+    "template_fallbacks": {}
+  }
+}

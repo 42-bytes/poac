@@ -43,6 +43,7 @@
   .big { font-size: 1.5rem; font-weight: 700; margin: .4rem 0; }
   .chart svg { width: 100%; height: auto; display: block; margin: .4rem 0 .2rem; font: 13px system-ui, sans-serif; }
   .chart .cap { font-size: .85rem; color: var(--mute); margin: 0 0 .6rem; }
+  .cap { font-size: .85rem; color: var(--mute); }
   .tiers { display: flex; gap: .35rem; flex-wrap: wrap; margin: .6rem 0 0; }
   .tiers button { font: inherit; font-size: .85rem; padding: .25em .7em; border: 1px solid #ccc; border-radius: 999px; background: #fff; color: #333; cursor: pointer; }
   .tiers button[aria-pressed="true"] { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
@@ -113,6 +114,15 @@
     <h2 style="margin-top:0">Everyone so far</h2>
     <p id="tally" class="mute"></p>
     <div id="stats" class="mute">loading…</div>
+  </section>
+
+  <section class="card" id="receiptsCard" hidden>
+    <h2 style="margin-top:0">What an agent needs for a receipt</h2>
+    <p class="mute">Every round of a session must be answered correctly inside its budget — one miss voids the session and the agent starts over. A passed session yields a receipt bound to the agent's key, valid for the time shown.</p>
+    <div id="tierTable"></div>
+    <p class="mute" style="margin-top:1rem">What it costs an agent operator, per receipt, failed attempts included (list prices via OpenRouter, one-shot prompting, no retries beyond the budget):</p>
+    <div id="costTable"></div>
+    <p id="refNote" class="cap"></p>
   </section>
 
   <p class="mute">This is the <a href="/">PoAC verifier</a>. Agents read <a href="/llms.txt">/llms.txt</a>; the protocol and measured results are in the repo.</p>
@@ -490,9 +500,45 @@
     return [h('p', null, h('strong', null, title)), h('table', null, h('thead', null, head), h('tbody', null, rows))];
   }
 
+  const fmtTtl = (sec) => sec >= 3600 ? `${Math.round(sec / 3600)} h` : `${Math.round(sec / 60)} min`;
+  const fmtUsd = (x) => x == null ? '–' : x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(3)}`;
+  const FAMILY_WORD = { nlu: 'reading', data: 'data', logic: 'logic', code: 'code', diagram: 'diagram', proof: 'Lean proof' };
+
+  function tierTable(tiers) {
+    const head = h('tr', null, ['level', 'rounds', 'budget per round', 'puzzle types', 'receipt valid'].map(t => h('th', null, t)));
+    const rows = Object.entries(tiers).map(([t, v]) => h('tr', null,
+      h('td', null, h('strong', null, t)), h('td', null, String(v.rounds)), h('td', null, `${v.round_budget_ms / 1000} s`),
+      h('td', null, v.families.map(f => FAMILY_WORD[f] || f).join(', ')), h('td', null, fmtTtl(v.receipt_ttl_s))));
+    return h('table', null, h('thead', null, head), h('tbody', null, rows));
+  }
+
+  function costTable(models, tiers) {
+    const cols = Object.keys(tiers).filter(t => t !== 'C0');
+    const head = h('tr', null, ['model', ...cols].map(t => h('th', null, t)));
+    // order: most levels passed at ≥90%, then cheapest C1
+    const score = (by) => cols.filter(t => by[t] && by[t].pass >= 0.9).length;
+    const names = Object.keys(models).sort((a, b) => score(models[b]) - score(models[a]) || ((models[a].C1 || {}).cost || 9) - ((models[b].C1 || {}).cost || 9));
+    const rows = names.map(name => h('tr', null, h('td', null, name), ...cols.map(t => {
+      const e = models[name][t];
+      if (!e) return h('td', { class: 'mute' }, '–');
+      if (e.pass === 0) return h('td', { class: 'mute' }, '0% pass');
+      const cell = h('td', { style: e.pass < 0.9 ? 'color:var(--mute)' : '' }, fmtUsd(e.cost));
+      cell.append(h('span', { class: 'cap' }, ` ${pct(e.pass)}`));
+      cell.title = `${pct(e.pass)} of sessions passed; median ${fmtS(e.ms)} per puzzle; ${e.n} sessions`;
+      return cell;
+    })));
+    return h('table', null, h('thead', null, head), h('tbody', null, rows));
+  }
+
   async function loadTally() {
     try {
       const c = await (await fetch('/v1/stats')).json();
+      if (c.tiers && c.agents) {
+        replace($('tierTable'), tierTable(c.tiers));
+        replace($('costTable'), costTable(c.agents.models || {}, c.tiers));
+        $('refNote').textContent = 'Cell = cost per receipt · session pass rate; grey = under 90 % pass. ' + (c.agents.note || '');
+        $('receiptsCard').hidden = false;
+      }
       const tiers = Object.entries(c.by_tier || {}).map(([t, n]) => `${t}: ${n}`).join(' · ');
       replace($('tally'),
         h('strong', null, c.receipts_issued.toLocaleString()),

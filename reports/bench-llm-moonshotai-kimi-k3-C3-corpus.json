@@ -1,0 +1,44 @@
+{
+  "client": "llm:openrouter:moonshotai/kimi-k3",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C3",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 3,
+  "pass_rate": 0.3,
+  "pass_rate_wilson95": [
+    0.1078,
+    0.6032
+  ],
+  "failure_classes": {
+    "timeout": 7
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 5743.75,
+    "p95": 26122.02,
+    "p99": 31968.15
+  },
+  "session_latency_ms": {
+    "p50": 30982.16,
+    "p95": 54893.57,
+    "p99": 54893.57
+  },
+  "mean_session_ms": 36227.23,
+  "wall_clock_s": 362.27,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 33873,
+    "output_tokens": 23018,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.442051,
+    "cost_usd_per_session": 0.044205,
+    "cost_usd_per_receipt": 0.14735
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-moonshotai-kimi-k3.sqlite",
+    "rounds_served": 25,
+    "template_fallbacks": {}
+  }
+}

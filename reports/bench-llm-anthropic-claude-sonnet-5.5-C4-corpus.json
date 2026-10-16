@@ -1,0 +1,46 @@
+{
+  "client": "llm:openrouter:anthropic/claude-sonnet-5.5",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C4",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 9,
+  "pass_rate": 0.9,
+  "pass_rate_wilson95": [
+    0.5958,
+    0.9821
+  ],
+  "failure_classes": {
+    "wrong_answer": 1
+  },
+  "client_error_rounds": 1,
+  "client_errors_sample": [
+    "ModelHTTPError: status_code: 429, model_name: anthropic/claude-sonnet-5.5, body: {'message': 'Rate limit exceeded: new-account-rpm/anthr"
+  ],
+  "solve_latency_ms": {
+    "p50": 2002.94,
+    "p95": 5618.85,
+    "p99": 9748.85
+  },
+  "session_latency_ms": {
+    "p50": 7051.16,
+    "p95": 14248.28,
+    "p99": 14248.28
+  },
+  "mean_session_ms": 8902.62,
+  "wall_clock_s": 89.03,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 15370,
+    "output_tokens": 2339,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.05413,
+    "cost_usd_per_session": 0.005413,
+    "cost_usd_per_receipt": 0.006014
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-anthropic-claude-sonnet-5.5.sqlite",
+    "rounds_served": 0,
+    "template_fallbacks": {}
+  }
+}

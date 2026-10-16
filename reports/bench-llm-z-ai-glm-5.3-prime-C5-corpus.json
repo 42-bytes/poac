@@ -1,0 +1,48 @@
+{
+  "client": "llm:openrouter:z-ai/glm-5.3-prime",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C5",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 1,
+  "pass_rate": 0.1,
+  "pass_rate_wilson95": [
+    0.0179,
+    0.4042
+  ],
+  "failure_classes": {
+    "expired": 5,
+    "timeout": 3,
+    "wrong_answer": 1
+  },
+  "client_error_rounds": 2,
+  "client_errors_sample": [
+    "UnexpectedModelBehavior: Model token limit (provider default) exceeded before any response was generated. Increase the `max_tokens` model setting"
+  ],
+  "solve_latency_ms": {
+    "p50": 5853.44,
+    "p95": 783623.63,
+    "p99": 1375254.96
+  },
+  "session_latency_ms": {
+    "p50": 176302.35,
+    "p95": 1375259.54,
+    "p99": 1375259.54
+  },
+  "mean_session_ms": 543051.66,
+  "wall_clock_s": 5430.52,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 234743,
+    "output_tokens": 329395,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 3.555956,
+    "cost_usd_per_session": 0.355596,
+    "cost_usd_per_receipt": 3.555956
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-z-ai-glm-5.3-prime.sqlite",
+    "rounds_served": 18,
+    "template_fallbacks": {}
+  }
+}

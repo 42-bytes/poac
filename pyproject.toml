@@ -44,7 +44,7 @@ poac-trials = "poac.trials.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"poac.trials" = ["*.html"]
+"poac.trials" = ["*.html", "*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -149,16 +149,19 @@ class LlmAgentClient:
         class Answer(BaseModel):
             answer: str
 
+        from pydantic_ai import PromptedOutput
+
         self.name = f"llm:{model}"
-        self._agent = Agent(
-            model,
-            output_type=Answer,
-            instructions=(
-                "You are completing a timed machine-capability challenge. "
-                "Read the task and return ONLY the requested short answer in "
-                "the `answer` field. No explanation."
-            ),
+        instructions = (
+            "You are completing a timed machine-capability challenge. "
+            "Read the task and return ONLY the requested short answer in "
+            "the `answer` field. No explanation."
         )
+        self._agent = Agent(model, output_type=Answer, instructions=instructions)
+        # Some providers (Qwen in thinking mode) reject forced tool calls; fall
+        # back to schema-in-prompt output for the rest of the run.
+        self._prompted = Agent(model, output_type=PromptedOutput(Answer), instructions=instructions)
+        self._use_prompted = False
 
         self.model = model
         self._usage_lock = threading.Lock()
@@ -169,9 +172,12 @@ class LlmAgentClient:
         prompt = payload.model_dump_json()
         for attempt in range(3):
             try:
-                result = self._agent.run_sync(prompt)
+                result = (self._prompted if self._use_prompted else self._agent).run_sync(prompt)
                 break
             except Exception as exc:  # provider 429/5xx: brief retry inside the round budget
+                if getattr(exc, "status_code", None) == 400 and "tool_choice" in str(exc) and not self._use_prompted:
+                    self._use_prompted = True
+                    continue
                 if attempt == 2 or not _transient(exc):
                     raise
                 time.sleep(1.5 * (attempt + 1))

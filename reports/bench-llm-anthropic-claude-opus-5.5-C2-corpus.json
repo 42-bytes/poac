@@ -14,21 +14,29 @@
   "client_error_rounds": 0,
   "client_errors_sample": [],
   "solve_latency_ms": {
-    "p50": 5201.56,
-    "p95": 10588.98,
-    "p99": 15561.34
+    "p50": 4264.98,
+    "p95": 8152.03,
+    "p99": 9581.22
   },
   "session_latency_ms": {
-    "p50": 22883.77,
-    "p95": 34126.58,
-    "p99": 34126.58
+    "p50": 18737.06,
+    "p95": 24554.55,
+    "p99": 24554.55
   },
-  "mean_session_ms": 24258.87,
-  "wall_clock_s": 242.59,
+  "mean_session_ms": 18844.1,
+  "wall_clock_s": 188.44,
   "concurrency": 1,
+  "usage": {
+    "input_tokens": 40154,
+    "output_tokens": 4094,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.242496,
+    "cost_usd_per_session": 0.02425,
+    "cost_usd_per_receipt": 0.02425
+  },
   "corpus": {
-    "db": "/tmp/corpus-bench.sqlite",
-    "rounds_served": 25,
+    "db": "/tmp/sweep/corpus-anthropic-claude-opus-5.5.sqlite",
+    "rounds_served": 23,
     "template_fallbacks": {}
   }
 }

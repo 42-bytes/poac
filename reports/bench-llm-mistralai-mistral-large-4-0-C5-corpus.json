@@ -1,0 +1,45 @@
+{
+  "client": "llm:openrouter:mistralai/mistral-large-4-0",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C5",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.2775
+  ],
+  "failure_classes": {
+    "expired": 8,
+    "timeout": 2
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 438985.2,
+    "p95": 581237.29,
+    "p99": 650238.71
+  },
+  "session_latency_ms": {
+    "p50": 482931.31,
+    "p95": 650245.01,
+    "p99": 650245.01
+  },
+  "mean_session_ms": 438924.73,
+  "wall_clock_s": 4389.25,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 337186,
+    "output_tokens": 549068,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 1.376839,
+    "cost_usd_per_session": 0.137684,
+    "cost_usd_per_receipt": null
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-mistralai-mistral-large-4-0.sqlite",
+    "rounds_served": 4,
+    "template_fallbacks": {}
+  }
+}

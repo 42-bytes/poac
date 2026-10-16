@@ -3,25 +3,18 @@
 from __future__ import annotations
 
 import json
+from importlib import resources
 import statistics
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-# Frontier-agent per-round solve p50 (ms) and session pass rate per tier,
-# from reports/bench-llm-*-C{n}[-corpus].json (2026-10 corpus; C4/C5 are the
-# Lean proof tiers, not offered to humans). Shown next to human numbers.
-AGENT_REFERENCE: dict[str, dict[str, dict[str, float]]] = {
-    "GPT-5.5": {"C1": {"ms": 2883, "pass": 1.0}, "C2": {"ms": 3685, "pass": 1.0}, "C3": {"ms": 3504, "pass": 0.9},
-                "C4": {"ms": 12606, "pass": 0.0}, "C5": {"ms": 4384, "pass": 0.4}},
-    "Gemini 4 Argon": {"C1": {"ms": 3132, "pass": 1.0}, "C2": {"ms": 3682, "pass": 1.0}, "C3": {"ms": 4306, "pass": 1.0},
-                       "C4": {"ms": 2446, "pass": 1.0}, "C5": {"ms": 4249, "pass": 1.0}},
-    "Claude Opus 5.5": {"C1": {"ms": 4421, "pass": 1.0}, "C2": {"ms": 5202, "pass": 1.0}, "C3": {"ms": 5418, "pass": 1.0},
-                        "C4": {"ms": 7197, "pass": 1.0}, "C5": {"ms": 5501, "pass": 1.0}},
-    "gpt-5-mini": {"C1": {"ms": 6029, "pass": 1.0}, "C2": {"ms": 7701, "pass": 0.77}},
-    "Grok 4.7": {"C1": {"ms": 7171, "pass": 0.7}, "C2": {"ms": 8482, "pass": 0.3}, "C3": {"ms": 26254, "pass": 0.0}},
-}
+# Frontier-agent per-round solve p50 (ms), session pass rate, USD per receipt
+# per tier — generated from reports/bench-llm-*.json by benchmarks/summarize.py.
+_REF = json.loads(resources.files("poac.trials").joinpath("agent_reference.json").read_text("utf-8"))
+AGENT_REFERENCE: dict[str, dict[str, dict[str, float]]] = _REF["models"]
+AGENT_REFERENCE_NOTE: str = f"{_REF['note']} (measured {_REF['generated']})"
 
 
 def _pct(values: list[float], q: float) -> float | None:
@@ -150,6 +143,5 @@ class TrialLog:
             "by_tier": group("tier"),
             "by_family_and_mode": pair_group("family", "mode"),
             "by_tier_and_mode": pair_group("tier", "mode"),
-            "agents": {"solve_ms_p50": AGENT_REFERENCE,
-                       "note": "frontier agents, one-shot per tier, 2026-10 corpus; ms = median per puzzle, pass = session pass rate"},
+            "agents": {"solve_ms_p50": AGENT_REFERENCE, "note": AGENT_REFERENCE_NOTE},
         }

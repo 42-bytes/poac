@@ -1,0 +1,42 @@
+{
+  "client": "llm:openrouter:z-ai/glm-5.3-prime",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C1",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 10,
+  "pass_rate": 1.0,
+  "pass_rate_wilson95": [
+    0.7225,
+    1.0
+  ],
+  "failure_classes": {},
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 2492.16,
+    "p95": 10110.66,
+    "p99": 10197.53
+  },
+  "session_latency_ms": {
+    "p50": 11663.25,
+    "p95": 15689.33,
+    "p99": 15689.33
+  },
+  "mean_session_ms": 12189.22,
+  "wall_clock_s": 121.89,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 23674,
+    "output_tokens": 9568,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.150486,
+    "cost_usd_per_session": 0.015049,
+    "cost_usd_per_receipt": 0.015049
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-z-ai-glm-5.3-prime.sqlite",
+    "rounds_served": 30,
+    "template_fallbacks": {}
+  }
+}

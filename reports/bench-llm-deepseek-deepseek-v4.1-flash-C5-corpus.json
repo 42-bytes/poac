@@ -1,0 +1,45 @@
+{
+  "client": "llm:openrouter:deepseek/deepseek-v4.1-flash",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C5",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 3,
+  "pass_rate": 0.3,
+  "pass_rate_wilson95": [
+    0.1078,
+    0.6032
+  ],
+  "failure_classes": {
+    "timeout": 5,
+    "wrong_answer": 2
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 2478.89,
+    "p95": 84928.07,
+    "p99": 94406.62
+  },
+  "session_latency_ms": {
+    "p50": 46392.35,
+    "p95": 103719.19,
+    "p99": 103719.19
+  },
+  "mean_session_ms": 55633.49,
+  "wall_clock_s": 556.34,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 41567,
+    "output_tokens": 114640,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.079012,
+    "cost_usd_per_session": 0.007901,
+    "cost_usd_per_receipt": 0.026337
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-deepseek-deepseek-v4.1-flash.sqlite",
+    "rounds_served": 24,
+    "template_fallbacks": {}
+  }
+}

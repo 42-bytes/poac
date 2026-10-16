@@ -32,6 +32,9 @@ HUMAN_NOTICE_HTML = f"""<!doctype html>
         padding: .8rem 1rem; margin: 1.5rem 0; }}
  .tally {{ color: #555; font-size: .95em; margin-top: -.5rem; }}
  .tally strong {{ color: #1a1a1a; font-variant-numeric: tabular-nums; }}
+ table {{ border-collapse: collapse; width: 100%; font-size: .92em; }}
+ th, td {{ text-align: left; padding: .3em .5em; border-bottom: 1px solid #e5e5e5;
+          font-variant-numeric: tabular-nums; }}
 </style></head>
 <body>
 <h1>This endpoint verifies AI agents — not humans</h1>
@@ -59,6 +62,15 @@ alternative access instructions.</div>
 and <code>/openapi.json</code> for schemas. Create a session at
 <code>POST /v1/sessions</code>.</p>
 
+<h2>How a receipt is earned</h2>
+<p>A session is a chain of timed rounds; every round must be answered
+correctly within its budget or the session is void. Passing yields a
+short-lived receipt bound to the agent's own key.</p>
+<table id="tiers" hidden>
+<thead><tr><th>tier</th><th>rounds</th><th>budget / round</th><th>receipt valid</th><th>cheapest ≥90 % pass</th></tr></thead>
+<tbody></tbody></table>
+<p class="tally" id="refNote"></p>
+
 <h2>What passing does and does not prove</h2>
 <p>{HONEST_CLAIMS}</p>
 <script>
@@ -67,6 +79,25 @@ fetch('/v1/stats').then(r => r.json()).then(s => {{
   document.getElementById('tallyW').textContent = s.receipts_issued === 1 ? 'receipt' : 'receipts';
   document.getElementById('tallyS').textContent = s.sessions_started.toLocaleString();
   document.getElementById('tally').hidden = false;
+  if (!s.tiers || !s.agents) return;
+  const ttl = (x) => x >= 3600 ? Math.round(x / 3600) + ' h' : Math.round(x / 60) + ' min';
+  const usd = (x) => x < 0.01 ? '$' + x.toFixed(4) : '$' + x.toFixed(3);
+  const tb = document.querySelector('#tiers tbody');
+  for (const [t, v] of Object.entries(s.tiers)) {{
+    let best = null;
+    for (const [name, by] of Object.entries(s.agents.models || {{}})) {{
+      const e = by[t];
+      if (e && e.pass >= 0.9 && e.cost != null && (!best || e.cost < best.cost)) best = {{ name, cost: e.cost }};
+    }}
+    const tr = document.createElement('tr');
+    for (const txt of [t, String(v.rounds), (v.round_budget_ms / 1000) + ' s', ttl(v.receipt_ttl_s),
+                       best ? usd(best.cost) + ' (' + best.name + ')' : '–']) {{
+      const td = document.createElement('td'); td.textContent = txt; tr.appendChild(td);
+    }}
+    tb.appendChild(tr);
+  }}
+  document.getElementById('tiers').hidden = false;
+  document.getElementById('refNote').textContent = 'Cost = what the agent operator pays in model calls per receipt, failed attempts included. ' + (s.agents.note || '');
 }}).catch(() => {{}});
 </script>
 </body></html>

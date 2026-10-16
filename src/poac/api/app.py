@@ -35,7 +35,8 @@ from poac.protocol.models import (
 )
 from poac.sessions.orchestrator import Orchestrator, SessionError, VerifierError
 from poac.trials.api import build_trials_router
-from poac.trials.log import TrialLog
+from poac.sessions.config import TIERS, tier_requires_kernel
+from poac.trials.log import AGENT_REFERENCE, AGENT_REFERENCE_NOTE, TrialLog
 
 MAX_BODY_BYTES = 64 * 1024
 SESSION_RATE_PER_MINUTE = 30
@@ -161,9 +162,22 @@ def create_app(
 
     @app.get("/v1/stats")
     def stats(response: Response) -> dict:
-        """Lifetime counters: receipts issued (total, per tier) and sessions started."""
+        """Lifetime counters (receipts issued, per tier; sessions started), what each
+        tier takes to pass, and measured agent reference numbers incl. cost."""
         response.headers["Cache-Control"] = "public, max-age=30"
-        return orchestrator.counters()
+        return {
+            **orchestrator.counters(),
+            "tiers": {
+                t.value: {
+                    "rounds": cfg.rounds, "round_budget_ms": cfg.time_budget_ms,
+                    "receipt_ttl_s": cfg.receipt_ttl_s, "families": list(cfg.families),
+                    "kernel": tier_requires_kernel(cfg),
+                }
+                for t, cfg in TIERS.items()
+                if kernel_tiers_enabled or not tier_requires_kernel(cfg)
+            },
+            "agents": {"models": AGENT_REFERENCE, "note": AGENT_REFERENCE_NOTE},
+        }
 
     # --- relying-platform verification --------------------------------------
 

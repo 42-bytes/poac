@@ -1,0 +1,416 @@
+{
+ "generated": "2026-10-16",
+ "note": "one-shot LLM agents via OpenRouter, 2026-10 corpus; ms = median per puzzle, pass = session pass rate, cost = USD per receipt (failed attempts included)",
+ "models": {
+  "Claude Opus 5.5": {
+   "C1": {
+    "ms": 3675,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.0139,
+    "cost_attempt": 0.0139
+   },
+   "C2": {
+    "ms": 4265,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.02425,
+    "cost_attempt": 0.02425
+   },
+   "C3": {
+    "ms": 5208,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.04117,
+    "cost_attempt": 0.04117
+   },
+   "C4": {
+    "ms": 8739,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.02963,
+    "cost_attempt": 0.02963
+   },
+   "C5": {
+    "ms": 7262,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.05114,
+    "cost_attempt": 0.04603
+   }
+  },
+  "Claude Sonnet 5.5": {
+   "C1": {
+    "ms": 2941,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00834,
+    "cost_attempt": 0.00834
+   },
+   "C2": {
+    "ms": 3288,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.01492,
+    "cost_attempt": 0.01492
+   },
+   "C3": {
+    "ms": 3263,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.02713,
+    "cost_attempt": 0.02442
+   },
+   "C4": {
+    "ms": 2003,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.00601,
+    "cost_attempt": 0.00541
+   },
+   "C5": {
+    "ms": 3062,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.02343,
+    "cost_attempt": 0.02343
+   }
+  },
+  "DeepSeek V4.1 Flash": {
+   "C1": {
+    "ms": 1997,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00078,
+    "cost_attempt": 0.00078
+   },
+   "C2": {
+    "ms": 1874,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.0014,
+    "cost_attempt": 0.0014
+   },
+   "C3": {
+    "ms": 2160,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00239,
+    "cost_attempt": 0.00239
+   },
+   "C4": {
+    "ms": 24980,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 0.19068,
+    "cost_attempt": 0.01907
+   },
+   "C5": {
+    "ms": 2479,
+    "pass": 0.3,
+    "n": 10,
+    "cost": 0.02634,
+    "cost_attempt": 0.0079
+   }
+  },
+  "GLM-5.3": {
+   "C1": {
+    "ms": 2492,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.01505,
+    "cost_attempt": 0.01505
+   },
+   "C2": {
+    "ms": 3349,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.02842,
+    "cost_attempt": 0.02558
+   },
+   "C3": {
+    "ms": 4575,
+    "pass": 0.7,
+    "n": 10,
+    "cost": 0.05991,
+    "cost_attempt": 0.04194
+   },
+   "C4": {
+    "ms": 439569,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.32362
+   },
+   "C5": {
+    "ms": 5853,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 3.55596,
+    "cost_attempt": 0.3556
+   }
+  },
+  "GPT-5.5": {
+   "C1": {
+    "ms": 2883,
+    "pass": 1.0,
+    "n": 10
+   },
+   "C2": {
+    "ms": 3685,
+    "pass": 1.0,
+    "n": 10
+   },
+   "C3": {
+    "ms": 3504,
+    "pass": 0.9,
+    "n": 10
+   },
+   "C4": {
+    "ms": 12606,
+    "pass": 0.0,
+    "n": 5
+   },
+   "C5": {
+    "ms": 4384,
+    "pass": 0.4,
+    "n": 5
+   }
+  },
+  "GPT-5.6 Luna": {
+   "C1": {
+    "ms": 2525,
+    "pass": 0.6,
+    "n": 10,
+    "cost": 0.0008,
+    "cost_attempt": 0.00048
+   },
+   "C2": {
+    "ms": 2783,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.00114,
+    "cost_attempt": 0.00103
+   },
+   "C3": {
+    "ms": 2621,
+    "pass": 0.7,
+    "n": 10,
+    "cost": 0.00235,
+    "cost_attempt": 0.00165
+   },
+   "C4": {
+    "ms": 9969,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00219
+   },
+   "C5": {
+    "ms": 2871,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 0.02292,
+    "cost_attempt": 0.00229
+   }
+  },
+  "GPT-5.6 Sol": {
+   "C1": {
+    "ms": 2439,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00509,
+    "cost_attempt": 0.00509
+   },
+   "C2": {
+    "ms": 2896,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00857,
+    "cost_attempt": 0.00857
+   },
+   "C3": {
+    "ms": 3434,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.01664,
+    "cost_attempt": 0.01664
+   },
+   "C4": {
+    "ms": 14219,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 0.15904,
+    "cost_attempt": 0.0159
+   },
+   "C5": {
+    "ms": 3964,
+    "pass": 0.5,
+    "n": 10,
+    "cost": 0.03764,
+    "cost_attempt": 0.01882
+   }
+  },
+  "Gemini 4 Argon": {
+   "C1": {
+    "ms": 5776,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00711,
+    "cost_attempt": 0.00711
+   },
+   "C2": {
+    "ms": 5458,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.01247,
+    "cost_attempt": 0.01247
+   },
+   "C3": {
+    "ms": 6064,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.02324,
+    "cost_attempt": 0.02091
+   },
+   "C4": {
+    "ms": 4721,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.00664,
+    "cost_attempt": 0.00664
+   },
+   "C5": {
+    "ms": 5729,
+    "pass": 0.8,
+    "n": 10,
+    "cost": 0.02591,
+    "cost_attempt": 0.02073
+   }
+  },
+  "Kimi K3": {
+   "C1": {
+    "ms": 6386,
+    "pass": 0.9,
+    "n": 10,
+    "cost": 0.02855,
+    "cost_attempt": 0.0257
+   },
+   "C2": {
+    "ms": 5450,
+    "pass": 0.5,
+    "n": 10,
+    "cost": 0.07921,
+    "cost_attempt": 0.03961
+   },
+   "C3": {
+    "ms": 5744,
+    "pass": 0.3,
+    "n": 10,
+    "cost": 0.14735,
+    "cost_attempt": 0.04421
+   },
+   "C4": {
+    "ms": 38604,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 1.4067,
+    "cost_attempt": 0.14067
+   },
+   "C5": {
+    "ms": 8586,
+    "pass": 0.4,
+    "n": 10,
+    "cost": 0.45739,
+    "cost_attempt": 0.18296
+   }
+  },
+  "MiniMax M3": {
+   "C1": {
+    "ms": 802,
+    "pass": 0.1,
+    "n": 10,
+    "cost": 0.00393,
+    "cost_attempt": 0.00039
+   },
+   "C2": {
+    "ms": 922,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00038
+   },
+   "C3": {
+    "ms": 994,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00041
+   },
+   "C4": {
+    "ms": 1154,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00024
+   },
+   "C5": {
+    "ms": 903,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00054
+   }
+  },
+  "Mistral Large 4": {
+   "C1": {
+    "ms": 14473,
+    "pass": 0.3,
+    "n": 10,
+    "cost": 0.13512,
+    "cost_attempt": 0.04054
+   },
+   "C2": {
+    "ms": 20680,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.05709
+   },
+   "C3": {
+    "ms": 29278,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.00558
+   },
+   "C4": {
+    "ms": 436774,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.1068
+   },
+   "C5": {
+    "ms": 438985,
+    "pass": 0.0,
+    "n": 10,
+    "cost_attempt": 0.13768
+   }
+  },
+  "Qwen3.8 Max": {
+   "C1": {
+    "ms": 3997,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.01968,
+    "cost_attempt": 0.01968
+   },
+   "C2": {
+    "ms": 5293,
+    "pass": 1.0,
+    "n": 10,
+    "cost": 0.03403,
+    "cost_attempt": 0.03403
+   },
+   "C3": {
+    "ms": 5982,
+    "pass": 0.7,
+    "n": 10,
+    "cost": 0.08758,
+    "cost_attempt": 0.0613
+   }
+  }
+ }
+}

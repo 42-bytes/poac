@@ -1,0 +1,46 @@
+{
+  "client": "llm:openrouter:openai/gpt-5.6-luna",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C1",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 6,
+  "pass_rate": 0.6,
+  "pass_rate_wilson95": [
+    0.3127,
+    0.8318
+  ],
+  "failure_classes": {
+    "wrong_answer": 4
+  },
+  "client_error_rounds": 1,
+  "client_errors_sample": [
+    "ModelHTTPError: status_code: 429, model_name: openai/gpt-5.6-luna, body: {'message': 'Rate limit exceeded: new-account-rpm/openai/gpt-5."
+  ],
+  "solve_latency_ms": {
+    "p50": 2524.84,
+    "p95": 6533.97,
+    "p99": 10139.34
+  },
+  "session_latency_ms": {
+    "p50": 6647.79,
+    "p95": 12784.55,
+    "p99": 12784.55
+  },
+  "mean_session_ms": 7699.97,
+  "wall_clock_s": 77.0,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 11810,
+    "output_tokens": 2007,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.00477,
+    "cost_usd_per_session": 0.000477,
+    "cost_usd_per_receipt": 0.000795
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-openai-gpt-5.6-luna.sqlite",
+    "rounds_served": 27,
+    "template_fallbacks": {}
+  }
+}

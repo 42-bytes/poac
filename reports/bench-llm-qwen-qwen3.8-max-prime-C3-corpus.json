@@ -1,0 +1,45 @@
+{
+  "client": "llm:openrouter:qwen/qwen3.8-max-prime",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C3",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 7,
+  "pass_rate": 0.7,
+  "pass_rate_wilson95": [
+    0.3968,
+    0.8922
+  ],
+  "failure_classes": {
+    "expired": 1,
+    "timeout": 2
+  },
+  "client_error_rounds": 0,
+  "client_errors_sample": [],
+  "solve_latency_ms": {
+    "p50": 5982.36,
+    "p95": 14114.02,
+    "p99": 38159.99
+  },
+  "session_latency_ms": {
+    "p50": 38165.77,
+    "p95": 124019.66,
+    "p99": 124019.66
+  },
+  "mean_session_ms": 46507.09,
+  "wall_clock_s": 465.07,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 43514,
+    "output_tokens": 36582,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.61304,
+    "cost_usd_per_session": 0.061304,
+    "cost_usd_per_receipt": 0.087577
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-qwen-qwen3.8-max-prime.sqlite",
+    "rounds_served": 32,
+    "template_fallbacks": {}
+  }
+}

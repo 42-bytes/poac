@@ -1,0 +1,47 @@
+{
+  "client": "llm:openrouter:mistralai/mistral-large-4-0",
+  "client_description": "autonomous LLM agent (structured output, provider-neutral)",
+  "tier": "C3",
+  "transport": "in-process+corpus",
+  "sessions": 10,
+  "passes": 0,
+  "pass_rate": 0.0,
+  "pass_rate_wilson95": [
+    0.0,
+    0.2775
+  ],
+  "failure_classes": {
+    "expired": 3,
+    "timeout": 7
+  },
+  "client_error_rounds": 5,
+  "client_errors_sample": [
+    "UnexpectedModelBehavior: Exceeded maximum output retries (1)"
+  ],
+  "solve_latency_ms": {
+    "p50": 29277.76,
+    "p95": 676844.69,
+    "p99": 1298976.26
+  },
+  "session_latency_ms": {
+    "p50": 45227.66,
+    "p95": 1298982.33,
+    "p99": 1298982.33
+  },
+  "mean_session_ms": 238479.27,
+  "wall_clock_s": 2384.79,
+  "concurrency": 1,
+  "usage": {
+    "input_tokens": 11439,
+    "output_tokens": 22961,
+    "sessions_with_cost": 7,
+    "cost_usd_total": 0.055767,
+    "cost_usd_per_session": 0.005577,
+    "cost_usd_per_receipt": null
+  },
+  "corpus": {
+    "db": "/tmp/sweep/corpus-mistralai-mistral-large-4-0.sqlite",
+    "rounds_served": 9,
+    "template_fallbacks": {}
+  }
+}

@@ -4,31 +4,41 @@
   "tier": "C3",
   "transport": "in-process+corpus",
   "sessions": 10,
-  "passes": 10,
-  "pass_rate": 1.0,
+  "passes": 9,
+  "pass_rate": 0.9,
   "pass_rate_wilson95": [
-    0.7225,
-    1.0
+    0.5958,
+    0.9821
   ],
-  "failure_classes": {},
+  "failure_classes": {
+    "wrong_answer": 1
+  },
   "client_error_rounds": 0,
   "client_errors_sample": [],
   "solve_latency_ms": {
-    "p50": 4305.51,
-    "p95": 7727.13,
-    "p99": 8848.46
+    "p50": 6064.19,
+    "p95": 11636.47,
+    "p99": 14771.73
   },
   "session_latency_ms": {
-    "p50": 27899.28,
-    "p95": 30905.29,
-    "p99": 30905.29
+    "p50": 37218.53,
+    "p95": 49787.73,
+    "p99": 49787.73
   },
-  "mean_session_ms": 27346.9,
-  "wall_clock_s": 273.47,
+  "mean_session_ms": 36139.27,
+  "wall_clock_s": 361.39,
   "concurrency": 1,
+  "usage": {
+    "input_tokens": 42047,
+    "output_tokens": 12506,
+    "sessions_with_cost": 10,
+    "cost_usd_total": 0.209154,
+    "cost_usd_per_session": 0.020915,
+    "cost_usd_per_receipt": 0.023239
+  },
   "corpus": {
-    "db": "/tmp/corpus-bench.sqlite",
-    "rounds_served": 36,
+    "db": "/tmp/sweep/corpus-google-gemini-4-argon.sqlite",
+    "rounds_served": 31,
     "template_fallbacks": {}
   }
 }
